@@ -1,0 +1,65 @@
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:15-alpine
+    container_name: music-separation-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: music_separation
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - music-separation
+
+  # Flask API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: music-separation-api
+    environment:
+      FLASK_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/music_separation
+      JWT_SECRET: dev-secret-key
+      PORT: 5000
+      ENABLE_MOCK_RESPONSES: "true"
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: flask run --host=0.0.0.0
+    networks:
+      - music-separation
+
+  # pgAdmin (optional, for database browsing)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: music-separation-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - music-separation
+
+volumes:
+  postgres_data:
+
+networks:
+  music-separation:
+    driver: bridge
