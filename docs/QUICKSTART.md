@@ -21,13 +21,13 @@ docker-compose up -d
 
 This starts:
 - PostgreSQL on port 5432
-- Flask API on port 5000
+- Flask API on port 5001
 - pgAdmin on port 5050 (optional)
 
 ### 3. Verify Setup
 ```bash
 # Check if API is running
-curl http://localhost:5000/health
+curl http://localhost:5001/health
 
 # Expected response:
 # {"status": "ok", "timestamp": "...", "version": "1.0.0"}
@@ -39,7 +39,7 @@ curl http://localhost:5000/health
 
 ### Register a User
 ```bash
-curl -X POST http://localhost:5000/auth/register \
+curl -X POST http://localhost:5001/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "device_id": "test-device-123",
@@ -53,7 +53,7 @@ export SESSION_TOKEN="<session_token_from_response>"
 
 ### Upload Audio
 ```bash
-curl -X POST http://localhost:5000/upload \
+curl -X POST http://localhost:5001/upload \
   -H "Authorization: Bearer $SESSION_TOKEN" \
   -H "X-User-ID: $USER_ID" \
   -F "file=@sample.mp3" \
@@ -65,7 +65,7 @@ export TRACK_ID="<track_id_from_response>"
 
 ### Get Label Suggestions
 ```bash
-curl -X POST http://localhost:5000/extraction/suggest-labels \
+curl -X POST http://localhost:5001/extraction/suggest-labels \
   -H "Authorization: Bearer $SESSION_TOKEN" \
   -H "X-User-ID: $USER_ID" \
   -H "Content-Type: application/json" \
@@ -74,7 +74,7 @@ curl -X POST http://localhost:5000/extraction/suggest-labels \
 
 ### Extract Sources
 ```bash
-curl -X POST http://localhost:5000/extraction/extract \
+curl -X POST http://localhost:5001/extraction/extract \
   -H "Authorization: Bearer $SESSION_TOKEN" \
   -H "X-User-ID: $USER_ID" \
   -H "Content-Type: application/json" \
@@ -93,14 +93,14 @@ export EXTRACTION_ID="<extraction_id_from_response>"
 
 ### Check Extraction Status
 ```bash
-curl -X GET http://localhost:5000/extraction/$EXTRACTION_ID \
+curl -X GET http://localhost:5001/extraction/$EXTRACTION_ID \
   -H "Authorization: Bearer $SESSION_TOKEN" \
   -H "X-User-ID: $USER_ID"
 ```
 
 ### Submit Feedback
 ```bash
-curl -X POST http://localhost:5000/extraction/$EXTRACTION_ID/feedback \
+curl -X POST http://localhost:5001/extraction/$EXTRACTION_ID/feedback \
   -H "Authorization: Bearer $SESSION_TOKEN" \
   -H "X-User-ID: $USER_ID" \
   -H "Content-Type: application/json" \
@@ -117,14 +117,14 @@ curl -X POST http://localhost:5000/extraction/$EXTRACTION_ID/feedback \
 
 ### Get User Credits
 ```bash
-curl -X GET http://localhost:5000/user/credits \
+curl -X GET http://localhost:5001/user/credits \
   -H "Authorization: Bearer $SESSION_TOKEN" \
   -H "X-User-ID: $USER_ID"
 ```
 
 ### Get User History
 ```bash
-curl -X GET http://localhost:5000/user/history?limit=10 \
+curl -X GET http://localhost:5001/user/history?limit=10 \
   -H "Authorization: Bearer $SESSION_TOKEN" \
   -H "X-User-ID: $USER_ID"
 ```
@@ -202,7 +202,7 @@ docker-compose up -d postgres
 ### Port Already in Use
 ```bash
 # Change port in docker-compose.yml or stop conflicting service
-lsof -i :5000  # Find what's using port 5000
+lsof -i :5001  # Find what's using port 5001
 ```
 
 ### Schema Not Applied
