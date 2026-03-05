@@ -1,0 +1,81 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+service_account.json
+credentials.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.cover
+
+# Jupyter
+.ipynb_checkpoints/
+
+# ML models (large files)
+models/pretrained/
+*.pt
+*.pth
+*.ckpt
+pretrained_models/
+
+# Audio files (don't commit test audio)
+*.mp3
+*.wav
+*.flac
+*.ogg
+sample.mp3
+
+# Logs
+*.log
+logs/
+
+# Docker
+.docker/
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/.terraform.lock.hcl
+
+# GCS credentials
+application_default_credentials.json
