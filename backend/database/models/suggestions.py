@@ -1,7 +1,7 @@
 """Instrument suggestions cache query helpers."""
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from psycopg2.extras import RealDictCursor, Json
 

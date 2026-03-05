@@ -8,10 +8,9 @@ All queries use parameterized statements to prevent SQL injection.
 import os
 import logging
 from contextlib import contextmanager
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
-import psycopg2
-from psycopg2.extras import RealDictCursor, Json
+from psycopg2.extras import RealDictCursor
 from psycopg2.pool import SimpleConnectionPool
 
 logger = logging.getLogger(__name__)

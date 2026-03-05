@@ -5,13 +5,11 @@ In development (ENABLE_MOCK_RESPONSES=true), returns mock URLs.
 In production, performs real GCS operations.
 """
 
-import io
 import os
 import logging
 import hashlib
 from datetime import timedelta
-from typing import Optional, Tuple
-from pathlib import Path
+from typing import Tuple
 
 logger = logging.getLogger(__name__)
 

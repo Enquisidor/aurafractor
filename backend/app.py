@@ -13,9 +13,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from utils.logging import setup_logging
-from utils.monitoring import get_metrics_snapshot
-from database.connection import health_check
+from utils.logging import setup_logging  # noqa: E402
+from utils.monitoring import get_metrics_snapshot  # noqa: E402
+from database.connection import health_check  # noqa: E402
 
 setup_logging()
 logger = logging.getLogger(__name__)

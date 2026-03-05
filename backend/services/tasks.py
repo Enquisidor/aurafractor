@@ -8,7 +8,7 @@ In production, creates a Cloud Tasks HTTP task targeting the worker endpoint.
 import json
 import logging
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 

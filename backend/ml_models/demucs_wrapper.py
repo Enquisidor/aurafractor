@@ -10,9 +10,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-
-import numpy as np
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +88,6 @@ def separate(
 
         for source in sources:
             label = source['label']
-            nlp_params = source.get('nlp_params', {})
             stem_key = _map_label_to_stem(label, stem_names)
 
             if stem_key is not None:
