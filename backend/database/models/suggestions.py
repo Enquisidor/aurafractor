@@ -31,33 +31,6 @@ def upsert_suggestions_cache(
     """Insert or update a suggestions cache entry."""
     sql = """
         INSERT INTO instrument_suggestions_cache
-            (track_id, suggestions, genre, tempo, user_history_suggestions,
-             expires_at)
-        VALUES (%s, %s, %s, %s, %s,
-                CURRENT_TIMESTAMP + (%(ttl)s || ' hours')::INTERVAL)
-        ON CONFLICT (track_id) DO UPDATE
-        SET suggestions             = EXCLUDED.suggestions,
-            genre                   = EXCLUDED.genre,
-            tempo                   = EXCLUDED.tempo,
-            user_history_suggestions = EXCLUDED.user_history_suggestions,
-            expires_at              = EXCLUDED.expires_at
-        RETURNING *
-    """
-    with db_transaction() as conn:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(sql, {
-                'track_id': track_id,
-                'suggestions': Json(suggestions),
-                'genre': genre,
-                'tempo': tempo,
-                'history': Json(user_history_suggestions) if user_history_suggestions else None,
-                'ttl': str(ttl_hours),
-            })
-            # psycopg2 doesn't mix %s and %(name)s in the same query cleanly;
-            # use positional params instead:
-    # Redo with positional placeholders to avoid mixing styles
-    sql = """
-        INSERT INTO instrument_suggestions_cache
             (track_id, suggestions, genre, tempo, user_history_suggestions, expires_at)
         VALUES (%s, %s, %s, %s, %s,
                 CURRENT_TIMESTAMP + CAST(%s || ' hours' AS INTERVAL))
