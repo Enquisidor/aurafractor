@@ -12,7 +12,7 @@ from typing import Dict, List
 
 import requests
 
-from models import demucs_wrapper, spleeter_wrapper
+from ml_models import demucs_wrapper, spleeter_wrapper
 from services.storage import download_audio, upload_stem, upload_waveform_json
 from database.models import update_extraction_status
 
