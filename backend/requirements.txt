@@ -3,4 +3,6 @@ Flask-Limiter==3.5.0
 python-dotenv==1.0.0
 psycopg2-binary==2.9.7
 PyJWT==2.11.0
+numpy>=1.24,<2
+requests>=2.31
 pytest==7.4.0
