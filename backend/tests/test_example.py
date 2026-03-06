@@ -5,10 +5,13 @@ Uses the shared fixtures from conftest.py (mock mode, no real DB/GCS).
 Run with: pytest tests/test_example.py -v
 """
 
+import pathlib
 import uuid
 import pytest
 
 from services.nlp import parse_label_to_params, compute_ambiguity_score
+
+_SAMPLE_MP3 = pathlib.Path(__file__).parent / 'sample.mp3'
 
 
 # Note: client, auth_headers, worker_headers fixtures come from conftest.py
@@ -181,7 +184,7 @@ def test_upload_success(client, auth_headers):
     response = client.post(
         '/upload',
         headers=auth_headers,
-        data={'file': (b'RIFF\x00\x00\x00\x00WAVEfmt ', 'test.wav')},
+        data={'file': (_SAMPLE_MP3.read_bytes(), 'sample.mp3')},
         content_type='multipart/form-data',
     )
     assert response.status_code == 201

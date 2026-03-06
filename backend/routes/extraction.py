@@ -96,7 +96,9 @@ def extract():
             {'label': s['label'], 'ambiguity_score': compute_ambiguity_score(s['label'])}
             for s in sources if compute_ambiguity_score(s['label']) > 0.6
         ]
-        cost = 10 if len(sources) > 1 else 5
+        base_cost = 10 if len(sources) > 1 else 5
+        ambiguity_cost = len(ambiguous)
+        cost = base_cost + ambiguity_cost
         extraction_id = str(uuid.uuid4())
         return jsonify({
             'extraction_id': extraction_id,
@@ -107,7 +109,7 @@ def extract():
             'models_used': list({s['model'] for s in sources}),
             'estimated_time_seconds': 120,
             'cost_credits': cost,
-            'cost_breakdown': {'total_cost': cost, 'base_cost': cost, 'ambiguity_cost': 0},
+            'cost_breakdown': {'total_cost': cost, 'base_cost': base_cost, 'ambiguity_cost': ambiguity_cost},
             'ambiguous_labels': ambiguous,
             'queue_position': 1,
             'created_at': datetime.utcnow().isoformat(),

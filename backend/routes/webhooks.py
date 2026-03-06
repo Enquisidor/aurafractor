@@ -1,5 +1,7 @@
 """Internal routes: webhook callbacks and Cloud Tasks worker entry point."""
 
+import os
+
 from flask import Blueprint, request, jsonify
 
 from utils.decorators import worker_auth, handle_errors
@@ -7,6 +9,7 @@ from utils.validation import validate_uuid
 from utils.monitoring import increment
 
 bp = Blueprint('webhooks', __name__)
+MOCK_MODE = os.getenv('ENABLE_MOCK_RESPONSES', 'false').lower() == 'true'
 
 
 @bp.route('/webhooks/extraction-complete', methods=['POST'])
@@ -17,6 +20,10 @@ def extraction_complete():
     data = request.get_json(force=True) or {}
     extraction_id = validate_uuid(data.get('extraction_id'), 'extraction_id')
     success = bool(data.get('success', False))
+
+    if MOCK_MODE:
+        increment('webhooks.extraction.' + ('success' if success else 'failure'))
+        return jsonify({'status': 'accepted'})
 
     from services.extraction import handle_extraction_webhook
     handle_extraction_webhook(
