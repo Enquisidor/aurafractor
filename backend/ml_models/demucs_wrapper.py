@@ -150,7 +150,6 @@ def _map_label_to_stem(label: str, stem_names: List[str]) -> Optional[str]:
 
 def _tensor_to_wav_bytes(tensor, sample_rate: int) -> bytes:
     """Convert a PyTorch tensor to WAV bytes."""
-    import torch
     import torchaudio
     buf = io.BytesIO()
     torchaudio.save(buf, tensor, sample_rate, format='wav')
