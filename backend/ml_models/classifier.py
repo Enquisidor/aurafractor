@@ -10,7 +10,7 @@ In mock mode, returns pre-defined suggestions.
 import io
 import logging
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 
 import numpy as np
 
@@ -192,7 +192,6 @@ def _detect_instruments_from_bands(
 def _estimate_genre(tempo: int, bands: Dict[str, float]) -> str:
     """Heuristic genre classification from tempo + spectral profile."""
     bass_heavy = bands['sub_bass'] + bands['bass'] > 0.25
-    high_energy_top = bands['presence'] + bands['air'] > 0.15
 
     if tempo < 80:
         return 'ambient'

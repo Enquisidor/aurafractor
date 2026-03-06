@@ -253,20 +253,38 @@ SELECT * FROM feedback;
 
 ## 📚 File Reference
 
+> All backend code now lives under `backend/`. Docs live under `docs/`.
+> See [BACKEND_DESIGN.md](BACKEND_DESIGN.md) for full architectural context.
+
 | File | Purpose | Status |
 |------|---------|--------|
-| README.md | Project overview | ✅ Complete |
-| BACKEND_DESIGN.md | System design | ✅ Complete |
-| BACKEND_INITIAL_PROMPT.md | Implementation guide | ✅ Complete |
-| QUICKSTART.md | Local testing | ✅ Complete |
-| app.py | Flask app (mocks) | ✅ Complete |
-| schema.sql | Database schema | ✅ Complete |
-| requirements.txt | Dependencies | ✅ Complete |
-| docker-compose.yml | Local dev | ✅ Complete |
-| tests/test_example.py | Test patterns | ✅ Complete |
-| services/*.py | (To implement) | ⏳ Next |
-| models/*.py | (To implement) | ⏳ Next |
-| terraform/*.tf | (To implement) | ⏳ Next |
+| README.md | Project overview | ✅ Updated |
+| docs/BACKEND_DESIGN.md | System design & API contracts | ✅ Complete |
+| docs/API_CONTRACT.md | Machine-readable endpoint reference | ✅ Complete |
+| docs/BACKEND_INITIAL_PROMPT.md | Implementation roadmap | ✅ Complete |
+| docs/QUICKSTART.md | Local testing examples | ✅ Complete |
+| backend/app.py | Flask app factory (blueprints) | ✅ Real impl |
+| backend/schema.sql | Database schema | ✅ Complete |
+| backend/requirements.txt | Python dependencies | ✅ Complete |
+| backend/docker-compose.yml | Local dev (Postgres + API) | ✅ Complete |
+| backend/routes/*.py | Flask blueprints (auth/upload/extraction/user/webhooks) | ✅ Complete |
+| backend/database/connection.py | Connection pool + query helpers | ✅ Complete |
+| backend/database/models/*.py | Per-table query functions | ✅ Complete |
+| backend/services/auth.py | JWT generation, register/login | ✅ Complete |
+| backend/services/extraction.py | Extraction orchestration | ✅ Complete |
+| backend/services/feedback.py | Feedback + re-extraction | ✅ Complete |
+| backend/services/credits.py | Credit deduction/refund | ✅ Complete |
+| backend/services/nlp.py | Label → params, ambiguity scoring | ✅ Complete |
+| backend/services/storage.py | GCS upload/download | ✅ Complete |
+| backend/services/tasks.py | Cloud Tasks enqueueing | ✅ Complete |
+| backend/ml_models/demucs_wrapper.py | Demucs inference | ✅ Complete |
+| backend/ml_models/spleeter_wrapper.py | Spleeter inference | ✅ Complete |
+| backend/ml_models/classifier.py | Spectral instrument classifier | ✅ Complete |
+| backend/workers/extraction_worker.py | Cloud Tasks worker | ✅ Complete |
+| backend/utils/*.py | Logging, validation, decorators, monitoring | ✅ Complete |
+| backend/tests/*.py | Unit + integration tests | ✅ Complete |
+| .github/workflows/ci.yml | GitHub Actions CI pipeline | ✅ Complete |
+| terraform/*.tf | Cloud Run / GCS / Tasks configs | ⏳ Next |
 
 ---
 
@@ -318,22 +336,25 @@ Everything is documented. You have a complete blueprint.
 
 ## 🎯 Success Criteria
 
-By end of Backend Instance (Week 7), you'll have:
-
-✅ Full PostgreSQL integration (no more mocks)
-✅ Audio upload & GCS storage working
+✅ Full PostgreSQL integration (connection pool, parameterized queries, transactions)
+✅ Audio upload & GCS storage (real + mock mode)
 ✅ Demucs + Spleeter model wrappers
-✅ Cloud Tasks job queue operational
-✅ Instrument classifier functional
-✅ Feedback loop with re-extraction
-✅ Credit system enforced
-✅ Privacy pipeline (anonymization, deletion)
-✅ 80%+ test coverage
-✅ Deployable to Cloud Run
-✅ Complete API documentation
-✅ Monitoring & logging setup
+✅ Cloud Tasks job queue (enqueue + worker endpoint)
+✅ Spectral instrument classifier (librosa)
+✅ NLP label engine (50+ rules, ambiguity scoring)
+✅ Feedback loop with re-extraction pipeline
+✅ Credit system enforced (atomic deduction, studio bypass, refund on failure)
+✅ Privacy pipeline (anonymized training data, soft-delete, GDPR endpoint)
+✅ Comprehensive tests (unit + integration, mock mode)
+✅ GitHub Actions CI pipeline
+✅ Structured JSON logging (GCP-compatible)
+✅ In-process metrics (`/metrics` endpoint)
+✅ API documented in [docs/API_CONTRACT.md](API_CONTRACT.md)
 
-Then NLP & Mobile instances can build on top of this solid foundation.
+⏳ Remaining: Terraform deployment configs, load testing
+
+Then NLP & Mobile instances can build on top of this foundation.
+Full architectural context: [BACKEND_DESIGN.md](BACKEND_DESIGN.md)
 
 ---
 

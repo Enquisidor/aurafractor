@@ -10,9 +10,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-
-import numpy as np
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +61,6 @@ def separate(
     import torch
     import torchaudio
     from demucs.apply import apply_model
-    from demucs.audio import AudioFile
 
     model = _get_model()
 
@@ -90,7 +87,6 @@ def separate(
 
         for source in sources:
             label = source['label']
-            nlp_params = source.get('nlp_params', {})
             stem_key = _map_label_to_stem(label, stem_names)
 
             if stem_key is not None:
@@ -154,7 +150,6 @@ def _map_label_to_stem(label: str, stem_names: List[str]) -> Optional[str]:
 
 def _tensor_to_wav_bytes(tensor, sample_rate: int) -> bytes:
     """Convert a PyTorch tensor to WAV bytes."""
-    import torch
     import torchaudio
     buf = io.BytesIO()
     torchaudio.save(buf, tensor, sample_rate, format='wav')

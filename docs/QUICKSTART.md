@@ -105,13 +105,10 @@ curl -X POST http://localhost:5001/extraction/$EXTRACTION_ID/feedback \
   -H "X-User-ID: $USER_ID" \
   -H "Content-Type: application/json" \
   -d "{
-    \"segment\": {
-      \"start_seconds\": 30,
-      \"end_seconds\": 60,
-      \"label\": \"vocals\"
-    },
     \"feedback_type\": \"good\",
-    \"refined_label\": null
+    \"segment_start_seconds\": 30,
+    \"segment_end_seconds\": 60,
+    \"segment_label\": \"vocals\"
   }"
 ```
 
@@ -218,7 +215,7 @@ docker exec music-separation-db psql -U postgres -d music_separation < schema.sq
 ### Test Label Parsing
 ```bash
 python -c "
-from app import parse_label_to_params, compute_ambiguity_score
+from services.nlp import parse_label_to_params, compute_ambiguity_score
 
 # Test parsing
 print(parse_label_to_params('lead vocals without reverb'))

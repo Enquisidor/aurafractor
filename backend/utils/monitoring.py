@@ -6,7 +6,6 @@ In production these would ship to GCP Cloud Monitoring.
 """
 
 import logging
-import os
 import time
 from collections import defaultdict
 from threading import Lock

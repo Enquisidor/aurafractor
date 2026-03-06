@@ -5,7 +5,7 @@ All validation functions raise ValueError with user-friendly messages.
 """
 
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 SUPPORTED_FORMATS = {'mp3', 'wav', 'flac', 'ogg'}
 SUPPORTED_MODELS = {'demucs', 'spleeter'}

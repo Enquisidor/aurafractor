@@ -10,14 +10,13 @@ from typing import Dict, Optional
 
 from database.models import (
     create_feedback,
-    link_feedback_reextraction,
     get_extraction,
     get_track,
     get_user_by_id,
     insert_training_data,
 )
 from services.credits import compute_extraction_cost, charge_for_extraction
-from services.nlp import parse_label_to_params, compute_ambiguity_score, build_training_point
+from services.nlp import parse_label_to_params, build_training_point
 from services.tasks import enqueue_reextraction_job
 from database.models import create_extraction
 

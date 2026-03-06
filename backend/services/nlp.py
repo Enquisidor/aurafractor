@@ -9,7 +9,7 @@ Wraps the rule engine from app.py with additional functionality:
 
 import hashlib
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
