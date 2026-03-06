@@ -1,5 +1,6 @@
 """Integration tests for API routes (mock mode, no real DB/GCS)."""
 
+import io
 import pathlib
 import uuid
 
@@ -63,7 +64,7 @@ class TestUpload:
         assert r.status_code == 401
 
     def test_upload_success(self, client, auth_headers):
-        data = {'file': (_SAMPLE_MP3.read_bytes(), 'sample.mp3')}
+        data = {'file': (io.BytesIO(_SAMPLE_MP3.read_bytes()), 'sample.mp3')}
         r = client.post('/upload', data=data, headers=auth_headers,
                         content_type='multipart/form-data')
         assert r.status_code == 201

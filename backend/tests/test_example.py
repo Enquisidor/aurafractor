@@ -5,6 +5,7 @@ Uses the shared fixtures from conftest.py (mock mode, no real DB/GCS).
 Run with: pytest tests/test_example.py -v
 """
 
+import io
 import pathlib
 import uuid
 import pytest
@@ -184,7 +185,7 @@ def test_upload_success(client, auth_headers):
     response = client.post(
         '/upload',
         headers=auth_headers,
-        data={'file': (_SAMPLE_MP3.read_bytes(), 'sample.mp3')},
+        data={'file': (io.BytesIO(_SAMPLE_MP3.read_bytes()), 'sample.mp3')},
         content_type='multipart/form-data',
     )
     assert response.status_code == 201
