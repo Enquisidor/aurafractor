@@ -15,6 +15,7 @@ load_dotenv()
 
 from utils.logging import setup_logging  # noqa: E402
 from utils.monitoring import get_metrics_snapshot  # noqa: E402
+from utils.rate_limiting import limiter  # noqa: E402
 from database.connection import health_check  # noqa: E402
 
 setup_logging()
@@ -26,6 +27,11 @@ MOCK_MODE = os.getenv('ENABLE_MOCK_RESPONSES', 'false').lower() == 'true'
 def create_app() -> Flask:
     app = Flask(__name__)
     app.config['JSON_SORT_KEYS'] = False
+
+    # Rate limiter (disabled in test mode to prevent interference)
+    if app.config.get('TESTING'):
+        app.config['RATELIMIT_ENABLED'] = False
+    limiter.init_app(app)
 
     # Register blueprints
     from routes.auth import bp as auth_bp
@@ -57,6 +63,10 @@ def create_app() -> Flask:
         return jsonify(get_metrics_snapshot())
 
     # Error handlers
+    @app.errorhandler(429)
+    def rate_limited(_e):
+        return jsonify({'error': 'Too many requests. Please slow down.'}), 429
+
     @app.errorhandler(400)
     def bad_request(_e):
         return jsonify({'error': 'Bad request'}), 400

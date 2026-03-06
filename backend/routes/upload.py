@@ -7,6 +7,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, g
 
 from utils.decorators import require_auth, handle_errors
+from utils.rate_limiting import limiter
 from utils.validation import validate_audio_file
 from utils.monitoring import increment
 
@@ -16,6 +17,7 @@ MOCK_MODE = os.getenv('ENABLE_MOCK_RESPONSES', 'false').lower() == 'true'
 
 @bp.route('/upload', methods=['POST'])
 @require_auth
+@limiter.limit("10 per hour")
 @handle_errors
 def upload():
     """Upload an audio file and store it in GCS."""

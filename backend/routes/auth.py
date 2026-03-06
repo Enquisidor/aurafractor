@@ -6,6 +6,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 
 from utils.decorators import handle_errors
+from utils.rate_limiting import limiter
 from utils.validation import validate_device_id
 from utils.monitoring import increment
 
@@ -14,6 +15,7 @@ MOCK_MODE = os.getenv('ENABLE_MOCK_RESPONSES', 'false').lower() == 'true'
 
 
 @bp.route('/register', methods=['POST'])
+@limiter.limit("10 per minute")
 @handle_errors
 def register():
     """Register or log in an anonymous user by device_id."""
@@ -45,6 +47,7 @@ def register():
 
 
 @bp.route('/refresh', methods=['POST'])
+@limiter.limit("20 per minute")
 @handle_errors
 def refresh():
     """Exchange a refresh token for a new session token."""

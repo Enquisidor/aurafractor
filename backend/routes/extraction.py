@@ -6,6 +6,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, g
 
 from utils.decorators import require_auth, handle_errors
+from utils.rate_limiting import limiter
 from utils.validation import validate_uuid, validate_sources, validate_feedback
 from utils.monitoring import increment, Timer
 
@@ -15,6 +16,7 @@ MOCK_MODE = os.getenv('ENABLE_MOCK_RESPONSES', 'false').lower() == 'true'
 
 @bp.route('/suggest-labels', methods=['POST'])
 @require_auth
+@limiter.limit("60 per hour")
 @handle_errors
 def suggest_labels():
     """Return AI-suggested instrument labels for a track."""
@@ -77,6 +79,7 @@ def suggest_labels():
 
 @bp.route('/extract', methods=['POST'])
 @require_auth
+@limiter.limit("20 per hour")
 @handle_errors
 def extract():
     """Initiate a source extraction job."""
@@ -128,6 +131,7 @@ def extract():
 
 @bp.route('/<extraction_id>', methods=['GET'])
 @require_auth
+@limiter.limit("120 per minute")
 @handle_errors
 def get_status(extraction_id):
     """Poll extraction job status and results."""

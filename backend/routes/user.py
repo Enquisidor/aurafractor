@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, g
 
 from utils.decorators import require_auth, handle_errors
+from utils.rate_limiting import limiter
 from utils.validation import validate_uuid, validate_pagination
 from utils.monitoring import increment
 
@@ -15,6 +16,7 @@ MOCK_MODE = os.getenv('ENABLE_MOCK_RESPONSES', 'false').lower() == 'true'
 
 @bp.route('/user/history', methods=['GET'])
 @require_auth
+@limiter.limit("30 per minute")
 @handle_errors
 def user_history():
     """Paginated extraction history for the authenticated user."""
@@ -53,6 +55,7 @@ def user_history():
 
 @bp.route('/user/credits', methods=['GET'])
 @require_auth
+@limiter.limit("60 per minute")
 @handle_errors
 def user_credits():
     """Return current credit balance and usage summary."""
@@ -74,6 +77,7 @@ def user_credits():
 
 @bp.route('/track/<track_id>', methods=['DELETE'])
 @require_auth
+@limiter.limit("10 per hour")
 @handle_errors
 def delete_track(track_id):
     """Soft-delete a track and its GCS files (GDPR right to erasure)."""
