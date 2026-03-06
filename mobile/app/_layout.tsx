@@ -29,7 +29,7 @@ export default function RootLayout() {
 
       {/* Auth overlay — sits above navigation without replacing the navigator */}
       {(loading || error) && (
-        <View style={styles.overlay} pointerEvents="box-only">
+        <View style={styles.overlay}>
           {loading && <ActivityIndicator size="large" color="#6366F1" />}
           {error && <Text style={styles.error}>{error}</Text>}
         </View>
