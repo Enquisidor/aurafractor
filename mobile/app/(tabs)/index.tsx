@@ -5,6 +5,9 @@
  *  1. Pick audio file → upload → get track_id + suggestions
  *  2. User selects labels from chips (AI-suggested + custom text input)
  *  3. Press Extract → navigate to extraction/[id]
+ *
+ * On upload error the picked file is preserved so the user can retry
+ * without re-picking.
  */
 
 import * as DocumentPicker from 'expo-document-picker';
@@ -25,6 +28,12 @@ import { LabelChip } from '../../src/components/LabelChip';
 
 type Phase = 'idle' | 'uploading' | 'selecting';
 
+interface PickedFile {
+  uri: string;
+  name: string;
+  mimeType: string;
+}
+
 interface TrackInfo {
   trackId: string;
   genre: string;
@@ -35,6 +44,7 @@ interface TrackInfo {
 export default function UploadScreen() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [isExtracting, setIsExtracting] = useState(false);
+  const [pickedFile, setPickedFile] = useState<PickedFile | null>(null);
   const [trackInfo, setTrackInfo] = useState<TrackInfo | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [customLabel, setCustomLabel] = useState('');
@@ -47,18 +57,11 @@ export default function UploadScreen() {
       return next;
     });
 
-  const pickAndUpload = async () => {
+  const doUpload = async (file: PickedFile) => {
     setError(null);
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/ogg', 'audio/*'],
-      copyToCacheDirectory: true,
-    });
-    if (result.canceled) return;
-
-    const asset = result.assets[0];
     setPhase('uploading');
     try {
-      const uploadRes = await uploadApi.audio(asset.uri, asset.name, asset.mimeType ?? 'audio/mpeg');
+      const uploadRes = await uploadApi.audio(file.uri, file.name, file.mimeType);
       const suggestRes = await extractionApi.suggestLabels(uploadRes.track_id);
       setTrackInfo({
         trackId: uploadRes.track_id,
@@ -69,8 +72,29 @@ export default function UploadScreen() {
       setPhase('selecting');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed');
-      setPhase('idle');
+      setPhase('idle'); // stay idle so user sees error + retry button
     }
+  };
+
+  const pickAndUpload = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/ogg', 'audio/*'],
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled) return;
+
+    const asset = result.assets[0];
+    const file: PickedFile = {
+      uri: asset.uri,
+      name: asset.name,
+      mimeType: asset.mimeType ?? 'audio/mpeg',
+    };
+    setPickedFile(file);
+    await doUpload(file);
+  };
+
+  const retry = () => {
+    if (pickedFile) doUpload(pickedFile);
   };
 
   const startExtraction = async () => {
@@ -104,7 +128,7 @@ export default function UploadScreen() {
         {phase === 'uploading' ? (
           <>
             <ActivityIndicator size="large" color="#6366F1" />
-            <Text style={styles.hint}>Uploading…</Text>
+            <Text style={styles.hint}>Uploading {pickedFile?.name}…</Text>
           </>
         ) : (
           <>
@@ -115,7 +139,17 @@ export default function UploadScreen() {
             <Pressable style={styles.button} onPress={pickAndUpload}>
               <Text style={styles.buttonText}>Choose Audio File</Text>
             </Pressable>
-            {error && <Text style={styles.error}>{error}</Text>}
+
+            {error && (
+              <>
+                <Text style={styles.error}>{error}</Text>
+                {pickedFile && (
+                  <Pressable style={styles.secondaryButton} onPress={retry}>
+                    <Text style={styles.secondaryText}>Retry "{pickedFile.name}"</Text>
+                  </Pressable>
+                )}
+              </>
+            )}
           </>
         )}
       </View>
@@ -127,7 +161,7 @@ export default function UploadScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.sectionTitle}>AI Suggestions</Text>
         <Text style={styles.meta}>
-          {trackInfo.genre.replace('_', ' ')} · {trackInfo.tempo} BPM
+          {trackInfo.genre.replace(/_/g, ' ')} · {trackInfo.tempo} BPM
         </Text>
         <View style={styles.chips}>
           {trackInfo.suggestions.map((s) => (
@@ -163,7 +197,7 @@ export default function UploadScreen() {
           )}
         </Pressable>
 
-        <Pressable style={styles.secondaryButton} onPress={() => setPhase('idle')}>
+        <Pressable style={styles.secondaryButton} onPress={pickAndUpload}>
           <Text style={styles.secondaryText}>← Upload different file</Text>
         </Pressable>
       </ScrollView>
@@ -195,10 +229,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 12,
+    width: '100%',
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
-  secondaryButton: { alignItems: 'center', paddingVertical: 12 },
+  secondaryButton: { alignItems: 'center', paddingVertical: 8 },
   secondaryText: { color: '#6366F1', fontSize: 14 },
   hint: { color: '#64748B', marginTop: 12, fontSize: 14 },
   error: { color: '#EF4444', fontSize: 13, textAlign: 'center' },

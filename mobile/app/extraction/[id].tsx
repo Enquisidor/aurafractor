@@ -1,23 +1,15 @@
 /**
  * Extraction status + results screen.
  *
- * Polls every 5 s until completed/failed, then shows audio stems.
- * Pressing a stem navigates to the feedback screen.
+ * Polls every 5 s until completed/failed, then shows playable audio stems.
  */
 
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import React from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { ExtractionResult } from '../../src/api/client';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ErrorView } from '../../src/components/ErrorView';
 import { StatusBadge } from '../../src/components/StatusBadge';
+import { StemPlayer } from '../../src/components/StemPlayer';
 import { useExtractionPoll } from '../../src/hooks/useExtraction';
 
 export default function ExtractionScreen() {
@@ -60,13 +52,14 @@ export default function ExtractionScreen() {
         <ErrorView message="Extraction failed. Please try again." />
       )}
 
-      {data.status === 'completed' && data.results?.sources.map((source) => (
-        <StemCard
-          key={source.label}
-          source={source}
-          extractionId={data.extraction_id}
-        />
-      ))}
+      {data.status === 'completed' &&
+        data.results?.sources.map((source) => (
+          <StemPlayer
+            key={source.label}
+            source={source}
+            extractionId={data.extraction_id}
+          />
+        ))}
 
       {data.status === 'awaiting_confirmation' && data.ambiguous_labels && (
         <View style={styles.warning}>
@@ -83,59 +76,12 @@ export default function ExtractionScreen() {
   );
 }
 
-function StemCard({
-  source,
-  extractionId,
-}: {
-  source: ExtractionResult;
-  extractionId: string;
-}) {
-  return (
-    <View style={styles.card}>
-      <Text style={styles.stemLabel}>{source.label}</Text>
-      <Text style={styles.stemMeta}>
-        {source.model_used} · {source.duration_seconds}s · {source.sample_rate / 1000}kHz
-      </Text>
-      <Pressable
-        style={styles.feedbackButton}
-        onPress={() =>
-          router.push({
-            pathname: '/extraction/feedback',
-            params: { extractionId, label: source.label },
-          })
-        }
-      >
-        <Text style={styles.feedbackButtonText}>Give Feedback</Text>
-      </Pressable>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   scroll: { padding: 20, gap: 16 },
   center: { alignItems: 'center', justifyContent: 'center', padding: 32, gap: 8 },
   hint: { color: '#64748B', fontSize: 14 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
   meta: { fontSize: 13, color: '#94A3B8' },
-  card: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 6,
-  },
-  stemLabel: { fontSize: 16, fontWeight: '600', color: '#1E293B' },
-  stemMeta: { fontSize: 13, color: '#94A3B8' },
-  feedbackButton: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  feedbackButtonText: { color: '#4338CA', fontWeight: '600', fontSize: 13 },
   warning: {
     backgroundColor: '#FFFBEB',
     borderRadius: 12,
