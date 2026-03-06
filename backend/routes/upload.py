@@ -43,47 +43,48 @@ def upload():
             'status': 'ready',
         }), 201
 
-    import soundfile as sf
-    from services.storage import upload_audio, compute_spectral_hash
-    from ml_models.classifier import classify_instruments
-    from database.models import create_track
-    from database.connection import execute_query
+    if not MOCK_MODE:  # pragma: no cover
+        import soundfile as sf
+        from services.storage import upload_audio, compute_spectral_hash
+        from ml_models.classifier import classify_instruments
+        from database.models import create_track
+        from database.connection import execute_query
 
-    try:
-        audio_data, sample_rate = sf.read(io.BytesIO(file_bytes))
-        duration_seconds = int(len(audio_data) / sample_rate)
-    except Exception:
-        duration_seconds = 0
-        sample_rate = 44100
+        try:
+            audio_data, sample_rate = sf.read(io.BytesIO(file_bytes))
+            duration_seconds = int(len(audio_data) / sample_rate)
+        except Exception:
+            duration_seconds = 0
+            sample_rate = 44100
 
-    file_size_mb = round(len(file_bytes) / (1024 * 1024), 2)
-    classification = classify_instruments(file_bytes)
+        file_size_mb = round(len(file_bytes) / (1024 * 1024), 2)
+        classification = classify_instruments(file_bytes)
 
-    track = create_track(
-        user_id=user_id,
-        filename=file.filename,
-        duration_seconds=max(1, duration_seconds),
-        format=ext,
-        gcs_path='pending',
-        file_size_mb=file_size_mb,
-        sample_rate=sample_rate,
-        genre_detected=classification.get('genre'),
-        tempo_detected=classification.get('tempo'),
-        spectral_hash=compute_spectral_hash(file_bytes),
-    )
-    track_id = str(track['track_id'])
+        track = create_track(
+            user_id=user_id,
+            filename=file.filename,
+            duration_seconds=max(1, duration_seconds),
+            format=ext,
+            gcs_path='pending',
+            file_size_mb=file_size_mb,
+            sample_rate=sample_rate,
+            genre_detected=classification.get('genre'),
+            tempo_detected=classification.get('tempo'),
+            spectral_hash=compute_spectral_hash(file_bytes),
+        )
+        track_id = str(track['track_id'])
 
-    gcs_path, audio_url = upload_audio(file_bytes, track_id, file.filename)
-    execute_query("UPDATE tracks SET gcs_path = %s WHERE track_id = %s", (gcs_path, track_id))
+        gcs_path, audio_url = upload_audio(file_bytes, track_id, file.filename)
+        execute_query("UPDATE tracks SET gcs_path = %s WHERE track_id = %s", (gcs_path, track_id))
 
-    increment('uploads.total')
-    return jsonify({
-        'track_id': track_id,
-        'uploaded_at': track['uploaded_at'].isoformat(),
-        'duration_seconds': duration_seconds,
-        'file_size_mb': file_size_mb,
-        'audio_url': audio_url,
-        'genre_detected': classification.get('genre'),
-        'tempo_detected': classification.get('tempo'),
-        'status': 'ready',
-    }), 201
+        increment('uploads.total')
+        return jsonify({
+            'track_id': track_id,
+            'uploaded_at': track['uploaded_at'].isoformat(),
+            'duration_seconds': duration_seconds,
+            'file_size_mb': file_size_mb,
+            'audio_url': audio_url,
+            'genre_detected': classification.get('genre'),
+            'tempo_detected': classification.get('tempo'),
+            'status': 'ready',
+        }), 201

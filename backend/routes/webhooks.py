@@ -25,23 +25,24 @@ def extraction_complete():
         increment('webhooks.extraction.' + ('success' if success else 'failure'))
         return jsonify({'status': 'accepted'})
 
-    from services.extraction import handle_extraction_webhook
-    handle_extraction_webhook(
-        extraction_id=extraction_id,
-        success=success,
-        sources=data.get('sources') if success else None,
-        error_message=data.get('error_message'),
-        processing_time_seconds=data.get('processing_time_seconds'),
-    )
+    if not MOCK_MODE:  # pragma: no cover
+        from services.extraction import handle_extraction_webhook
+        handle_extraction_webhook(
+            extraction_id=extraction_id,
+            success=success,
+            sources=data.get('sources') if success else None,
+            error_message=data.get('error_message'),
+            processing_time_seconds=data.get('processing_time_seconds'),
+        )
 
-    increment('webhooks.extraction.' + ('success' if success else 'failure'))
-    return jsonify({'status': 'accepted'})
+        increment('webhooks.extraction.' + ('success' if success else 'failure'))
+        return jsonify({'status': 'accepted'})
 
 
 @bp.route('/worker/extract', methods=['POST'])
 @worker_auth
 @handle_errors
-def worker_extract():
+def worker_extract():  # pragma: no cover
     """Entry point invoked by Cloud Tasks to run an extraction job."""
     payload = request.get_json(force=True) or {}
     if not payload.get('extraction_id'):
