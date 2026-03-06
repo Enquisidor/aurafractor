@@ -13,6 +13,16 @@ from utils.monitoring import increment
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 MOCK_MODE = os.getenv('ENABLE_MOCK_RESPONSES', 'false').lower() == 'true'
 
+# Comma-separated device IDs that receive Studio tier (unlimited credits).
+# Set DEV_DEVICE_IDS in your .env to your own device ID after first login.
+_DEV_DEVICE_IDS: set = {
+    d.strip() for d in os.getenv('DEV_DEVICE_IDS', '').split(',') if d.strip()
+}
+
+
+def _tier_for_device(device_id: str) -> str:
+    return 'studio' if device_id in _DEV_DEVICE_IDS else 'free'
+
 
 @bp.route('/register', methods=['POST'])
 @limiter.limit("10 per minute")
@@ -29,13 +39,15 @@ def register():
         user_id = str(uuid.uuid4())
         session_token, _ = generate_session_token(user_id)
         refresh_token = generate_refresh_token(user_id)
+        tier = _tier_for_device(device_id)
+        credits_remaining = None if tier == 'studio' else 100
         return jsonify({
             'user_id': user_id,
             'session_token': session_token,
             'refresh_token': refresh_token,
             'expires_in': 86400,
-            'subscription_tier': 'free',
-            'credits_remaining': 100,
+            'subscription_tier': tier,
+            'credits_remaining': credits_remaining,
             'is_new_user': True,
             'timestamp': datetime.utcnow().isoformat(),
         }), 201
