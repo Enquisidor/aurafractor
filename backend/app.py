@@ -24,12 +24,13 @@ logger = logging.getLogger(__name__)
 MOCK_MODE = os.getenv('ENABLE_MOCK_RESPONSES', 'false').lower() == 'true'
 
 
-def create_app() -> Flask:
+def create_app(testing: bool = False) -> Flask:
     app = Flask(__name__)
     app.config['JSON_SORT_KEYS'] = False
 
     # Rate limiter (disabled in test mode to prevent interference)
-    if app.config.get('TESTING'):
+    if testing:
+        app.config['TESTING'] = True
         app.config['RATELIMIT_ENABLED'] = False
     limiter.init_app(app)
 

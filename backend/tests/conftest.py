@@ -7,18 +7,16 @@ Uses ENABLE_MOCK_RESPONSES=true so no real DB or GCS is needed.
 import os
 import pytest
 
-# Force mock mode for all tests
-os.environ.setdefault('ENABLE_MOCK_RESPONSES', 'true')
+# Force mock mode for all tests (override CI env vars where needed)
+os.environ['ENABLE_MOCK_RESPONSES'] = 'true'
 os.environ.setdefault('JWT_SECRET', 'test-secret')
-os.environ.setdefault('WORKER_SECRET', 'test-worker-secret')
+os.environ['WORKER_SECRET'] = 'test-worker-secret'
 
 
 @pytest.fixture
 def app():
     from app import create_app
-    application = create_app()
-    application.config['TESTING'] = True
-    return application
+    return create_app(testing=True)
 
 
 @pytest.fixture
@@ -44,4 +42,4 @@ def auth_headers(mock_user_id):
 
 @pytest.fixture
 def worker_headers():
-    return {'X-Worker-Secret': 'test-worker-secret'}
+    return {'X-Worker-Secret': os.environ['WORKER_SECRET']}

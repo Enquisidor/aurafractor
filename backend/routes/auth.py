@@ -56,5 +56,26 @@ def refresh():
     if not refresh_token:
         raise ValueError('refresh_token is required')
 
+    if MOCK_MODE:
+        import jwt as _jwt
+        from services.auth import generate_session_token
+        try:
+            payload = _jwt.decode(
+                refresh_token,
+                os.getenv('JWT_SECRET', 'dev-secret'),
+                algorithms=['HS256'],
+            )
+            if payload.get('type') != 'refresh':
+                raise ValueError('Not a refresh token')
+            user_id = payload['user_id']
+        except _jwt.ExpiredSignatureError:
+            raise ValueError('Refresh token expired')
+        except ValueError:
+            raise
+        except Exception as exc:
+            raise ValueError(f'Invalid refresh token: {exc}')
+        token, _ = generate_session_token(user_id)
+        return jsonify({'session_token': token, 'expires_in': 86400})
+
     from services.auth import refresh_session
     return jsonify(refresh_session(refresh_token))

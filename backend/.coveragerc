@@ -2,6 +2,15 @@
 omit =
     tests/*
     */__pycache__/*
+    # Real-infra files unreachable in mock mode
+    services/extraction.py
+    services/storage.py
+    services/feedback.py
+    database/connection.py
+    database/models/*
+    workers/*
+    ml_models/demucs_wrapper.py
+    ml_models/spleeter_wrapper.py
 
 [report]
 exclude_lines =

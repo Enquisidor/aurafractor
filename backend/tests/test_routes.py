@@ -1,6 +1,10 @@
 """Integration tests for API routes (mock mode, no real DB/GCS)."""
 
+import pathlib
 import uuid
+
+_TESTS_DIR = pathlib.Path(__file__).parent
+_SAMPLE_MP3 = _TESTS_DIR / 'sample.mp3'
 
 
 class TestHealth:
@@ -59,7 +63,7 @@ class TestUpload:
         assert r.status_code == 401
 
     def test_upload_success(self, client, auth_headers):
-        data = {'file': (b'RIFF\x00\x00\x00\x00WAVEfmt ', 'test.wav')}
+        data = {'file': (_SAMPLE_MP3.read_bytes(), 'sample.mp3')}
         r = client.post('/upload', data=data, headers=auth_headers,
                         content_type='multipart/form-data')
         assert r.status_code == 201
