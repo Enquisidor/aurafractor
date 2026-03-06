@@ -22,10 +22,10 @@ React Native App
       │ HTTPS
       ▼
 Flask API (Cloud Run)
-      ├── PostgreSQL          — users, sessions, tracks, credits, feedback
+      ├── PostgreSQL           — users, sessions, tracks, credits, feedback
       ├── Google Cloud Storage — original audio, extracted stems, waveforms
-      ├── NLP Engine          — label → extraction params, ambiguity scoring
-      └── Cloud Tasks         — async extraction job queue
+      ├── NLP rule engine      — label → extraction params, ambiguity scoring
+      └── Cloud Tasks          — async extraction job queue
                 │
           Worker endpoint
                 ├── Demucs (htdemucs)
@@ -187,30 +187,34 @@ See [backend/.env.example](backend/.env.example) for the full list.
 
 ---
 
-## NLP Instance
-
-> **Status: ⏳ Next**
-
-A separate ML service that enhances label understanding beyond the rule engine:
-
-- Learned weights from aggregated user feedback
-- Transformer-based label disambiguation
-- Training data pipeline from production feedback
-
-Will be called by the backend's `/extraction/suggest-labels` and `/extraction/extract` endpoints.
-
----
-
 ## Mobile App
 
-> **Status: ⏳ Planned**
+> **Status: 🔨 In Progress**
 
-React Native (iOS + Android) consuming the Backend API.
+React Native (Expo) for iOS and Android, consuming the Backend API.
+
+```
+mobile/
+├── app/                    # Expo Router screens
+│   ├── (tabs)/             # Tab navigation
+│   │   ├── index.tsx       # Home / upload
+│   │   ├── history.tsx     # Track history
+│   │   └── credits.tsx     # Credit balance
+│   └── extraction/         # Extraction flow
+│       ├── [id].tsx        # Poll status + results
+│       └── feedback.tsx    # Feedback form
+├── src/
+│   ├── api/                # Typed API client
+│   ├── components/         # Shared UI components
+│   ├── hooks/              # Custom React hooks
+│   └── store/              # Auth + session state
+└── app.json
+```
 
 ---
 
 ## Further Reading
 
-- [docs/BACKEND_DESIGN.md](docs/BACKEND_DESIGN.md) — full system design, NLP pipeline, credit model, privacy approach
+- [docs/BACKEND_DESIGN.md](docs/BACKEND_DESIGN.md) — full system design, credit model, privacy approach
 - [docs/QUICKSTART.md](docs/QUICKSTART.md) — curl examples for every endpoint
 - [docs/API_CONTRACT.md](docs/API_CONTRACT.md) — machine-readable endpoint contract
