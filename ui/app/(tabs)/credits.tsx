@@ -2,9 +2,10 @@
  * Credits screen — balance, tier, usage, recent transactions.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -13,6 +14,8 @@ import {
 } from 'react-native';
 import { user as userApi, CreditsResponse } from '../../src/api/client';
 import { ErrorView } from '../../src/components/ErrorView';
+import { useTheme } from '../../src/contexts/ThemeContext';
+import { Theme } from '../../src/theme';
 
 const TIER_LABEL: Record<string, string> = {
   free: 'Free',
@@ -21,6 +24,8 @@ const TIER_LABEL: Record<string, string> = {
 };
 
 export default function CreditsScreen() {
+  const { C, isDark, toggleTheme } = useTheme();
+  const s = useMemo(() => makeStyles(C), [C]);
   const [data, setData] = useState<CreditsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -34,9 +39,7 @@ export default function CreditsScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    load().finally(() => setLoading(false));
-  }, [load]);
+  useEffect(() => { load().finally(() => setLoading(false)); }, [load]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -44,7 +47,7 @@ export default function CreditsScreen() {
     setRefreshing(false);
   }, [load]);
 
-  if (loading) return <ActivityIndicator style={styles.centered} size="large" color="#6366F1" />;
+  if (loading) return <ActivityIndicator style={s.centered} size="large" color={C.primary} />;
   if (error) return <ErrorView message={error} />;
   if (!data) return null;
 
@@ -54,103 +57,118 @@ export default function CreditsScreen() {
 
   return (
     <ScrollView
-      contentContainerStyle={styles.scroll}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366F1" />}
+      style={s.screen}
+      contentContainerStyle={s.scroll}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
     >
       {/* Balance card */}
-      <View style={styles.card}>
-        <Text style={styles.tier}>{TIER_LABEL[data.subscription_tier] ?? data.subscription_tier}</Text>
-        <Text style={styles.balance}>{data.current_balance}</Text>
-        <Text style={styles.balanceLabel}>credits remaining</Text>
-
-        {/* Progress bar */}
-        <View style={styles.barBg}>
-          <View style={[styles.barFill, { flex: pct }]} />
+      <View style={s.card}>
+        <Text style={s.tier}>{TIER_LABEL[data.subscription_tier] ?? data.subscription_tier}</Text>
+        <Text style={s.balance}>{data.current_balance}</Text>
+        <Text style={s.balanceLabel}>credits remaining</Text>
+        <View style={s.barBg}>
+          <View style={[s.barFill, { flex: pct }]} />
           <View style={{ flex: 1 - pct }} />
         </View>
-
-        <Text style={styles.resetDate}>
-          Resets {new Date(data.reset_date).toLocaleDateString()}
-        </Text>
+        <Text style={s.resetDate}>Resets {new Date(data.reset_date).toLocaleDateString()}</Text>
       </View>
 
       {/* Usage this month */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>This Month</Text>
-        <Row label="Extractions" value={String(data.usage_this_month.extractions)} />
-        <Row label="Credits spent" value={String(data.usage_this_month.credits_spent)} />
+      <View style={s.section}>
+        <Text style={s.sectionTitle}>This Month</Text>
+        <Row label="Extractions" value={String(data.usage_this_month.extractions)} s={s} />
+        <Row label="Credits spent" value={String(data.usage_this_month.credits_spent)} s={s} />
       </View>
 
       {/* Recent transactions */}
       {data.recent_transactions.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Transactions</Text>
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Recent Transactions</Text>
           {data.recent_transactions.map((tx, i) => (
-            <View key={i} style={styles.tx}>
+            <View key={i} style={s.tx}>
               <View>
-                <Text style={styles.txReason}>{tx.reason}</Text>
-                <Text style={styles.txDate}>{new Date(tx.created_at).toLocaleDateString()}</Text>
+                <Text style={s.txReason}>{tx.reason}</Text>
+                <Text style={s.txDate}>{new Date(tx.created_at).toLocaleDateString()}</Text>
               </View>
-              <Text style={[styles.txAmount, tx.amount < 0 ? styles.debit : styles.credit]}>
+              <Text style={[s.txAmount, tx.amount < 0 ? s.debit : s.credit]}>
                 {tx.amount > 0 ? '+' : ''}{tx.amount}
               </Text>
             </View>
           ))}
         </View>
       )}
+
+      {/* Theme toggle */}
+      <Pressable style={s.themeToggle} onPress={toggleTheme}>
+        <Text style={s.themeToggleText}>{isDark ? '☀️  Light mode' : '🌙  Dark mode'}</Text>
+      </Pressable>
     </ScrollView>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, s }: { label: string; value: string; s: ReturnType<typeof makeStyles> }) {
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value}</Text>
+    <View style={s.row}>
+      <Text style={s.rowLabel}>{label}</Text>
+      <Text style={s.rowValue}>{value}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  centered: { flex: 1 },
-  scroll: { padding: 20, gap: 16, maxWidth: 600, width: '100%', alignSelf: 'center' },
-  card: {
-    backgroundColor: '#6366F1',
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    gap: 4,
-  },
-  tier: { color: '#C7D2FE', fontSize: 13, fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase' },
-  balance: { color: '#FFF', fontSize: 56, fontWeight: '800', lineHeight: 64 },
-  balanceLabel: { color: '#C7D2FE', fontSize: 14 },
-  barBg: {
-    flexDirection: 'row',
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#4F46E5',
-    width: '100%',
-    marginTop: 12,
-    overflow: 'hidden',
-  },
-  barFill: { backgroundColor: '#A5B4FC', borderRadius: 3 },
-  resetDate: { color: '#C7D2FE', fontSize: 12, marginTop: 4 },
-  section: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 10,
-  },
-  sectionTitle: { fontSize: 13, fontWeight: '600', color: '#475569' },
-  row: { flexDirection: 'row', justifyContent: 'space-between' },
-  rowLabel: { color: '#64748B', fontSize: 14 },
-  rowValue: { color: '#1E293B', fontWeight: '600', fontSize: 14 },
-  tx: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  txReason: { fontSize: 14, color: '#334155', textTransform: 'capitalize' },
-  txDate: { fontSize: 11, color: '#94A3B8' },
-  txAmount: { fontSize: 15, fontWeight: '700' },
-  debit: { color: '#EF4444' },
-  credit: { color: '#10B981' },
-});
+function makeStyles(C: Theme) {
+  return StyleSheet.create({
+    centered: { flex: 1 },
+    screen:   { flex: 1, backgroundColor: C.bg },
+    scroll:   { padding: 20, gap: 16, maxWidth: 600, width: '100%', alignSelf: 'center' },
+    card: {
+      backgroundColor: C.primary,
+      borderRadius: 20,
+      padding: 28,
+      alignItems: 'center',
+      gap: 4,
+    },
+    tier:         { color: C.primaryLight, fontSize: 12, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase' },
+    balance:      { color: '#FFF', fontSize: 60, fontWeight: '800', lineHeight: 68 },
+    balanceLabel: { color: C.primaryLight, fontSize: 14 },
+    barBg: {
+      flexDirection: 'row',
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: 'rgba(0,0,0,0.2)',
+      width: '100%',
+      marginTop: 14,
+      overflow: 'hidden',
+    },
+    barFill:  { backgroundColor: C.fuchsia, borderRadius: 4 },
+    resetDate: { color: C.primaryLight, fontSize: 12, marginTop: 6 },
+    section: {
+      backgroundColor: C.surface,
+      borderRadius: 14,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: C.border,
+      gap: 10,
+    },
+    sectionTitle: { fontSize: 13, fontWeight: '700', color: C.textSecondary, textTransform: 'uppercase', letterSpacing: 0.8 },
+    row:      { flexDirection: 'row', justifyContent: 'space-between' },
+    rowLabel: { color: C.textMuted, fontSize: 14 },
+    rowValue: { color: C.textPrimary, fontWeight: '600', fontSize: 14 },
+    tx:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    txReason: { fontSize: 14, color: C.textPrimary, textTransform: 'capitalize' },
+    txDate:   { fontSize: 11, color: C.textMuted },
+    txAmount: { fontSize: 15, fontWeight: '700' },
+    debit:    { color: C.error },
+    credit:   { color: C.success },
+    themeToggle: {
+      alignSelf: 'center',
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: C.border,
+      backgroundColor: C.surface,
+      marginTop: 4,
+    },
+    themeToggleText: { color: C.textSecondary, fontSize: 14, fontWeight: '600' },
+  });
+}

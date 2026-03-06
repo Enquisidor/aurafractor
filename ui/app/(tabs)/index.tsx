@@ -11,7 +11,7 @@
  */
 
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,6 +25,8 @@ import {
 import { extraction as extractionApi, upload as uploadApi, LabelSuggestion } from '../../src/api/client';
 import { FilePicker, PickedFile } from '../../src/components/FilePicker';
 import { LabelChip } from '../../src/components/LabelChip';
+import { useTheme } from '../../src/contexts/ThemeContext';
+import { Theme } from '../../src/theme';
 
 type Phase = 'idle' | 'uploading' | 'selecting';
 
@@ -36,6 +38,8 @@ interface TrackInfo {
 }
 
 export default function UploadScreen() {
+  const { C } = useTheme();
+  const s = useMemo(() => makeStyles(C), [C]);
   const [phase, setPhase] = useState<Phase>('idle');
   const [isExtracting, setIsExtracting] = useState(false);
   const [pickedFile, setPickedFile] = useState<PickedFile | null>(null);
@@ -75,9 +79,7 @@ export default function UploadScreen() {
     doUpload(file);
   };
 
-  const retry = () => {
-    if (pickedFile) doUpload(pickedFile);
-  };
+  const retry = () => { if (pickedFile) doUpload(pickedFile); };
 
   const startExtraction = async () => {
     if (!trackInfo) return;
@@ -85,10 +87,7 @@ export default function UploadScreen() {
       ...selected,
       ...(customLabel.trim() ? [customLabel.trim()] : []),
     ];
-    if (labels.length === 0) {
-      Alert.alert('Select at least one label');
-      return;
-    }
+    if (labels.length === 0) { Alert.alert('Select at least one label'); return; }
     setIsExtracting(true);
     setError(null);
     try {
@@ -106,27 +105,26 @@ export default function UploadScreen() {
 
   if (phase === 'idle' || phase === 'uploading') {
     return (
-      <View style={styles.container}>
-        <View style={styles.inner}>
+      <View style={s.container}>
+        <View style={s.inner}>
           {phase === 'uploading' ? (
             <>
-              <ActivityIndicator size="large" color="#6366F1" />
-              <Text style={styles.hint}>Uploading {pickedFile?.name}…</Text>
+              <ActivityIndicator size="large" color={C.primary} />
+              <Text style={s.hint}>Uploading {pickedFile?.name}…</Text>
             </>
           ) : (
             <>
-              <Text style={styles.title}>Aurafractor</Text>
-              <Text style={styles.subtitle}>
+              <Text style={s.title}>Aurafractor</Text>
+              <Text style={s.subtitle}>
                 Upload a track and extract any instrument in plain language.
               </Text>
               <FilePicker onFilePicked={handleFilePicked} />
-
               {error && (
                 <>
-                  <Text style={styles.error}>{error}</Text>
+                  <Text style={s.error}>{error}</Text>
                   {pickedFile && (
-                    <Pressable style={styles.secondaryButton} onPress={retry}>
-                      <Text style={styles.secondaryText}>Retry "{pickedFile.name}"</Text>
+                    <Pressable style={s.secondaryButton} onPress={retry}>
+                      <Text style={s.secondaryText}>Retry "{pickedFile.name}"</Text>
                     </Pressable>
                   )}
                 </>
@@ -140,49 +138,48 @@ export default function UploadScreen() {
 
   if (phase === 'selecting' && trackInfo) {
     return (
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.inner}>
-          <Text style={styles.sectionTitle}>AI Suggestions</Text>
-          <Text style={styles.meta}>
+      <ScrollView style={s.scrollView} contentContainerStyle={s.scroll}>
+        <View style={s.inner}>
+          <Text style={s.sectionTitle}>AI Suggestions</Text>
+          <Text style={s.meta}>
             {trackInfo.genre.replace(/_/g, ' ')} · {trackInfo.tempo} BPM
           </Text>
-          <View style={styles.chips}>
-            {trackInfo.suggestions.map((s) => (
+          <View style={s.chips}>
+            {trackInfo.suggestions.map((suggestion) => (
               <LabelChip
-                key={s.label}
-                suggestion={s}
-                selected={selected.has(s.label)}
-                onPress={() => toggleLabel(s.label)}
+                key={suggestion.label}
+                suggestion={suggestion}
+                selected={selected.has(suggestion.label)}
+                onPress={() => toggleLabel(suggestion.label)}
               />
             ))}
           </View>
 
-          <Text style={styles.sectionTitle}>Custom Label</Text>
+          <Text style={s.sectionTitle}>Custom Label</Text>
           <TextInput
-            style={styles.input}
+            style={s.input}
             placeholder='e.g. "dry lead vocals"'
+            placeholderTextColor={C.textMuted}
             value={customLabel}
             onChangeText={setCustomLabel}
             returnKeyType="done"
           />
 
-          {error && <Text style={styles.error}>{error}</Text>}
+          {error && <Text style={s.error}>{error}</Text>}
 
           <Pressable
-            style={[styles.button, isExtracting && styles.buttonDisabled]}
+            style={[s.button, isExtracting && s.buttonDisabled]}
             onPress={startExtraction}
             disabled={isExtracting}
           >
-            {isExtracting ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={styles.buttonText}>Extract</Text>
-            )}
+            {isExtracting
+              ? <ActivityIndicator color="#FFF" />
+              : <Text style={s.buttonText}>Extract</Text>}
           </Pressable>
 
           <FilePicker onFilePicked={handleFilePicked} />
-          <Pressable style={styles.secondaryButton} onPress={() => setPhase('idle')}>
-            <Text style={styles.secondaryText}>← Upload different file</Text>
+          <Pressable style={s.secondaryButton} onPress={() => setPhase('idle')}>
+            <Text style={s.secondaryText}>← Upload different file</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -192,35 +189,39 @@ export default function UploadScreen() {
   return null;
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  inner: { width: '100%', maxWidth: 600, gap: 16 },
-  scroll: { padding: 20, alignItems: 'center' },
-  title: { fontSize: 32, fontWeight: '700', color: '#1E293B' },
-  subtitle: { fontSize: 16, color: '#64748B', textAlign: 'center', lineHeight: 22 },
-  sectionTitle: { fontSize: 14, fontWeight: '600', color: '#475569', marginTop: 8 },
-  meta: { fontSize: 13, color: '#94A3B8', marginBottom: 4 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap' },
-  input: {
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 15,
-    backgroundColor: '#F8FAFC',
-  },
-  button: {
-    backgroundColor: '#6366F1',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 12,
-    width: '100%',
-  },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
-  secondaryButton: { alignItems: 'center', paddingVertical: 8 },
-  secondaryText: { color: '#6366F1', fontSize: 14 },
-  hint: { color: '#64748B', marginTop: 12, fontSize: 14 },
-  error: { color: '#EF4444', fontSize: 13, textAlign: 'center' },
-});
+function makeStyles(C: Theme) {
+  return StyleSheet.create({
+    container:      { flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', padding: 32 },
+    scrollView:     { flex: 1, backgroundColor: C.bg },
+    inner:          { width: '100%', maxWidth: 600, gap: 16 },
+    scroll:         { padding: 20, alignItems: 'center' },
+    title:          { fontSize: 34, fontWeight: '800', color: C.textPrimary, letterSpacing: -0.5 },
+    subtitle:       { fontSize: 16, color: C.textMuted, textAlign: 'center', lineHeight: 24 },
+    sectionTitle:   { fontSize: 13, fontWeight: '700', color: C.textSecondary, textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 8 },
+    meta:           { fontSize: 13, color: C.periwinkle, marginBottom: 4 },
+    chips:          { flexDirection: 'row', flexWrap: 'wrap' },
+    input: {
+      borderWidth: 1.5,
+      borderColor: C.border,
+      borderRadius: 12,
+      padding: 12,
+      fontSize: 15,
+      color: C.textPrimary,
+      backgroundColor: C.surface,
+    },
+    button: {
+      backgroundColor: C.fuchsia,
+      paddingVertical: 15,
+      borderRadius: 14,
+      alignItems: 'center',
+      marginTop: 12,
+      width: '100%',
+    },
+    buttonDisabled:   { opacity: 0.5 },
+    buttonText:       { color: '#FFF', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
+    secondaryButton:  { alignItems: 'center', paddingVertical: 8 },
+    secondaryText:    { color: C.primary, fontSize: 14, fontWeight: '500' },
+    hint:             { color: C.textMuted, marginTop: 12, fontSize: 14, textAlign: 'center' },
+    error:            { color: C.error, fontSize: 13, textAlign: 'center' },
+  });
+}
