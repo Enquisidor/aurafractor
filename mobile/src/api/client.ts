@@ -4,9 +4,13 @@
  */
 
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
+
+// Android emulator routes 10.0.2.2 → host machine; iOS simulator uses localhost
+const DEV_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
 
 export const BASE_URL = __DEV__
-  ? 'http://localhost:5000'
+  ? `http://${DEV_HOST}:5001`
   : 'https://<your-cloud-run-host>';
 
 // ---------------------------------------------------------------------------

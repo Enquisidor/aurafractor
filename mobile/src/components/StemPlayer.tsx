@@ -5,7 +5,7 @@
  */
 
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useRef } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ExtractionResult } from '../api/client';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
@@ -26,6 +26,7 @@ export function StemPlayer({ source, extractionId }: Props) {
     useAudioPlayer(source.audio_url);
 
   const progress = durationMs > 0 ? positionMs / durationMs : 0;
+  const barWidth = useRef(0);
 
   return (
     <View style={styles.card}>
@@ -57,8 +58,9 @@ export function StemPlayer({ source, extractionId }: Props) {
           <Text style={styles.timeText}>{formatMs(positionMs)}</Text>
           <Pressable
             style={styles.scrubBg}
+            onLayout={(e) => { barWidth.current = e.nativeEvent.layout.width; }}
             onPress={(e) => {
-              const pct = e.nativeEvent.locationX / e.nativeEvent.target;
+              const pct = barWidth.current > 0 ? e.nativeEvent.locationX / barWidth.current : 0;
               seek(pct * durationMs);
             }}
           >

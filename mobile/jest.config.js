@@ -3,6 +3,7 @@ module.exports = {
   moduleNameMapper: {
     'react-native-reanimated': '<rootDir>/node_modules/react-native-reanimated/mock',
     '^expo-secure-store$': '<rootDir>/__mocks__/expo-secure-store.ts',
+    '^expo-av$': '<rootDir>/__mocks__/expo-av.ts',
     '^@ungap/structured-clone$': '<rootDir>/__mocks__/structured-clone.ts',
   },
   transformIgnorePatterns: [
