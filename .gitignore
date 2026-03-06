@@ -62,7 +62,8 @@ pretrained_models/
 *.wav
 *.flac
 *.ogg
-sample.mp3
+# Allow the test fixture audio file
+!backend/tests/sample.mp3
 
 # Logs
 *.log
