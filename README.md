@@ -10,15 +10,15 @@ An AI-powered music source separation tool. Users upload a track, describe what 
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| **Backend** | ✅ Complete | Flask API, PostgreSQL, GCS, Cloud Tasks |
-| **Mobile App** | 🔨 In Progress | React Native iOS/Android |
+| **Backend** | ✅ Complete | Flask API, PostgreSQL, GCS, Cloud Tasks — 79 tests, 75%+ coverage |
+| **UI** | ✅ Complete | Expo (iOS / Android / Web), full upload→extract→playback flow — 26 tests |
 
 ---
 
 ## Architecture
 
 ```
-React Native App
+Expo App (Web / iOS / Android)
       │ HTTPS
       ▼
 Flask API (Cloud Run)
@@ -190,26 +190,45 @@ See [backend/.env](backend/.env) for the full list.
 
 ## UI
 
-> **Status: 🔨 In Progress**
+> **Status: ✅ Complete** (dev build pending deployment)
 
-React Native (Expo) for iOS, Android, and web, consuming the Backend API.
+Expo SDK 55 — runs on iOS, Android, and web from a single codebase.
+
+**Features:**
+- Anonymous device-ID auth, session persisted to SecureStore (native) / localStorage (web)
+- Upload audio → AI label suggestions → select/custom labels → extract
+- Real-time extraction polling (5 s interval) with status badge
+- Stem audio playback with scrub bar (expo-av, degrades gracefully on Expo Go)
+- Feedback form with optional label refinement → re-extraction
+- Paginated track history, credit balance dashboard
+- Responsive layout capped at 600 px max-width for web
 
 ```
 ui/
 ├── app/                    # Expo Router screens
-│   ├── (tabs)/             # Tab navigation
-│   │   ├── index.tsx       # Home / upload
-│   │   ├── history.tsx     # Track history
-│   │   └── credits.tsx     # Credit balance
-│   └── extraction/         # Extraction flow
-│       ├── [id].tsx        # Poll status + results
-│       └── feedback.tsx    # Feedback form
+│   ├── (tabs)/
+│   │   ├── index.tsx       # Upload + label selection
+│   │   ├── history.tsx     # Paginated track history
+│   │   └── credits.tsx     # Balance, usage, transactions
+│   └── extraction/
+│       ├── [id].tsx        # Poll status + StemPlayer
+│       └── feedback.tsx    # Feedback / re-extraction
 ├── src/
-│   ├── api/                # Typed API client
-│   ├── components/         # Shared UI components
-│   ├── hooks/              # Custom React hooks
-│   └── store/              # Auth + session state
-└── app.json
+│   ├── api/client.ts       # Typed fetch client (all endpoints)
+│   ├── components/         # LabelChip, StatusBadge, StemPlayer, FilePicker, ErrorView
+│   ├── hooks/              # useAuth, useExtractionPoll, useAudioPlayer
+│   ├── storage/platform.ts # localStorage ↔ SecureStore abstraction
+│   └── store/auth.ts       # Session persistence
+└── app.json                # Expo config (web.bundler: metro)
+```
+
+**Quick start:**
+```bash
+cd ui
+npm install --legacy-peer-deps
+npm run web          # browser at localhost:8081
+npm run android      # requires expo prebuild first
+npm test             # 26 tests
 ```
 
 ---
