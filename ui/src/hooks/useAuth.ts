@@ -1,20 +1,20 @@
 /**
  * Hook: loads/registers auth on mount, exposes auth state.
- * Generates a stable device ID from expo-device if available.
+ * Generates a stable device ID stored via platform storage.
  */
 
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
+import { storage } from '../storage/platform';
 import { loadAuth, registerDevice, AuthState } from '../store/auth';
 
 const DEVICE_ID_KEY = 'device_id';
 
 async function getOrCreateDeviceId(): Promise<string> {
-  const stored = await SecureStore.getItemAsync(DEVICE_ID_KEY);
+  const stored = await storage.getItem(DEVICE_ID_KEY);
   if (stored) return stored;
   const id = `${Platform.OS}-${Math.random().toString(36).slice(2)}-${Date.now()}`;
-  await SecureStore.setItemAsync(DEVICE_ID_KEY, id);
+  await storage.setItem(DEVICE_ID_KEY, id);
   return id;
 }
 

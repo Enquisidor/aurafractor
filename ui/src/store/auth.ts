@@ -1,9 +1,9 @@
 /**
- * Auth store — session token, user info, persisted via SecureStore.
- * Minimal global state; no external state library needed.
+ * Auth store — session token, user info, persisted via platform storage.
+ * Uses localStorage on web, expo-secure-store on native.
  */
 
-import * as SecureStore from 'expo-secure-store';
+import { storage } from '../storage/platform';
 import { auth as authApi, AuthResponse } from '../api/client';
 
 const KEYS = {
@@ -23,10 +23,10 @@ export interface AuthState {
 
 export async function loadAuth(): Promise<AuthState | null> {
   const [sessionToken, refreshToken, userId, subscriptionTier] = await Promise.all([
-    SecureStore.getItemAsync(KEYS.sessionToken),
-    SecureStore.getItemAsync(KEYS.refreshToken),
-    SecureStore.getItemAsync(KEYS.userId),
-    SecureStore.getItemAsync(KEYS.subscriptionTier),
+    storage.getItem(KEYS.sessionToken),
+    storage.getItem(KEYS.refreshToken),
+    storage.getItem(KEYS.userId),
+    storage.getItem(KEYS.subscriptionTier),
   ]);
   if (!sessionToken || !refreshToken || !userId) return null;
   return {
@@ -40,15 +40,15 @@ export async function loadAuth(): Promise<AuthState | null> {
 
 export async function saveAuth(res: AuthResponse): Promise<void> {
   await Promise.all([
-    SecureStore.setItemAsync(KEYS.sessionToken, res.session_token),
-    SecureStore.setItemAsync(KEYS.refreshToken, res.refresh_token),
-    SecureStore.setItemAsync(KEYS.userId, res.user_id),
-    SecureStore.setItemAsync(KEYS.subscriptionTier, res.subscription_tier),
+    storage.setItem(KEYS.sessionToken, res.session_token),
+    storage.setItem(KEYS.refreshToken, res.refresh_token),
+    storage.setItem(KEYS.userId, res.user_id),
+    storage.setItem(KEYS.subscriptionTier, res.subscription_tier),
   ]);
 }
 
 export async function clearAuth(): Promise<void> {
-  await Promise.all(Object.values(KEYS).map((k) => SecureStore.deleteItemAsync(k)));
+  await Promise.all(Object.values(KEYS).map((k) => storage.removeItem(k)));
 }
 
 export async function registerDevice(deviceId: string): Promise<AuthState> {
@@ -65,6 +65,6 @@ export async function registerDevice(deviceId: string): Promise<AuthState> {
 
 export async function refreshSession(refreshToken: string): Promise<string> {
   const res = await authApi.refresh(refreshToken);
-  await SecureStore.setItemAsync(KEYS.sessionToken, res.session_token);
+  await storage.setItem(KEYS.sessionToken, res.session_token);
   return res.session_token;
 }

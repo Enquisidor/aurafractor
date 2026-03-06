@@ -77,7 +77,7 @@ export default function ExtractionScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 20, gap: 16 },
+  scroll: { padding: 20, gap: 16, maxWidth: 600, width: '100%', alignSelf: 'center' },
   center: { alignItems: 'center', justifyContent: 'center', padding: 32, gap: 8 },
   hint: { color: '#64748B', fontSize: 14 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },

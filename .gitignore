@@ -79,3 +79,34 @@ terraform/terraform.tfvars
 
 # GCS credentials
 application_default_credentials.json
+
+# Node
+node_modules/
+npm-debug.log*
+.npm/
+
+# Expo / React Native
+.expo/
+dist/
+web-build/
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+
+# Android build artifacts
+**/android/.gradle/
+**/android/build/
+**/android/app/build/
+**/android/.idea/
+**/.classpath
+**/.project
+**/.settings/
+
+# iOS build artifacts
+**/ios/build/
+**/ios/Pods/
+**/ios/DerivedData/
+
+# Jest coverage
+coverage/

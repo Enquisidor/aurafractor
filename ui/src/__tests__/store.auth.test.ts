@@ -3,6 +3,7 @@
  * expo-secure-store is mocked via __mocks__/expo-secure-store.ts.
  */
 
+import { storage } from '../storage/platform';
 import { clearAuth, loadAuth, saveAuth } from '../store/auth';
 
 const MOCK_AUTH_RESPONSE = {
@@ -18,7 +19,7 @@ const MOCK_AUTH_RESPONSE = {
 
 describe('auth store', () => {
   beforeEach(async () => {
-    await clearAuth();
+    (storage as any).__clear();
   });
 
   it('loadAuth returns null when no tokens stored', async () => {

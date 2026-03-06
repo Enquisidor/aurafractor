@@ -3,8 +3,8 @@
  * All requests include the Bearer session token from secure storage.
  */
 
-import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { storage } from '../storage/platform';
 
 // Android emulator routes 10.0.2.2 → host machine; iOS simulator uses localhost
 const DEV_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
@@ -134,7 +134,7 @@ export interface CreditsResponse {
 // ---------------------------------------------------------------------------
 
 async function getToken(): Promise<string | null> {
-  return SecureStore.getItemAsync('session_token');
+  return storage.getItem('session_token');
 }
 
 async function request<T>(

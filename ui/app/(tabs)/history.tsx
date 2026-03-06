@@ -95,7 +95,7 @@ function TrackRow({ track }: { track: TrackSummary }) {
 
 const styles = StyleSheet.create({
   centered: { flex: 1 },
-  list: { padding: 16, gap: 10 },
+  list: { padding: 16, gap: 10, maxWidth: 600, width: '100%', alignSelf: 'center' },
   empty: { textAlign: 'center', color: '#94A3B8', marginTop: 60, fontSize: 15 },
   row: {
     flexDirection: 'row',

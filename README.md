@@ -188,14 +188,14 @@ See [backend/.env](backend/.env) for the full list.
 
 ---
 
-## Mobile App
+## UI
 
 > **Status: 🔨 In Progress**
 
-React Native (Expo) for iOS and Android, consuming the Backend API.
+React Native (Expo) for iOS, Android, and web, consuming the Backend API.
 
 ```
-mobile/
+ui/
 ├── app/                    # Expo Router screens
 │   ├── (tabs)/             # Tab navigation
 │   │   ├── index.tsx       # Home / upload

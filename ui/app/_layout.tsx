@@ -6,7 +6,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../src/hooks/useAuth';
 
 export default function RootLayout() {
@@ -14,7 +14,7 @@ export default function RootLayout() {
 
   return (
     <>
-      <StatusBar style="auto" />
+      {Platform.OS !== 'web' && <StatusBar style="auto" />}
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen

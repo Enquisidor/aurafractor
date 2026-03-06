@@ -113,7 +113,7 @@ function Row({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   centered: { flex: 1 },
-  scroll: { padding: 20, gap: 16 },
+  scroll: { padding: 20, gap: 16, maxWidth: 600, width: '100%', alignSelf: 'center' },
   card: {
     backgroundColor: '#6366F1',
     borderRadius: 16,

@@ -10,7 +10,6 @@
  * without re-picking.
  */
 
-import * as DocumentPicker from 'expo-document-picker';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -24,15 +23,10 @@ import {
   View,
 } from 'react-native';
 import { extraction as extractionApi, upload as uploadApi, LabelSuggestion } from '../../src/api/client';
+import { FilePicker, PickedFile } from '../../src/components/FilePicker';
 import { LabelChip } from '../../src/components/LabelChip';
 
 type Phase = 'idle' | 'uploading' | 'selecting';
-
-interface PickedFile {
-  uri: string;
-  name: string;
-  mimeType: string;
-}
 
 interface TrackInfo {
   trackId: string;
@@ -72,25 +66,13 @@ export default function UploadScreen() {
       setPhase('selecting');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed');
-      setPhase('idle'); // stay idle so user sees error + retry button
+      setPhase('idle');
     }
   };
 
-  const pickAndUpload = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/ogg', 'audio/*'],
-      copyToCacheDirectory: true,
-    });
-    if (result.canceled) return;
-
-    const asset = result.assets[0];
-    const file: PickedFile = {
-      uri: asset.uri,
-      name: asset.name,
-      mimeType: asset.mimeType ?? 'audio/mpeg',
-    };
+  const handleFilePicked = (file: PickedFile) => {
     setPickedFile(file);
-    await doUpload(file);
+    doUpload(file);
   };
 
   const retry = () => {
@@ -125,33 +107,33 @@ export default function UploadScreen() {
   if (phase === 'idle' || phase === 'uploading') {
     return (
       <View style={styles.container}>
-        {phase === 'uploading' ? (
-          <>
-            <ActivityIndicator size="large" color="#6366F1" />
-            <Text style={styles.hint}>Uploading {pickedFile?.name}…</Text>
-          </>
-        ) : (
-          <>
-            <Text style={styles.title}>Aurafractor</Text>
-            <Text style={styles.subtitle}>
-              Upload a track and extract any instrument in plain language.
-            </Text>
-            <Pressable style={styles.button} onPress={pickAndUpload}>
-              <Text style={styles.buttonText}>Choose Audio File</Text>
-            </Pressable>
+        <View style={styles.inner}>
+          {phase === 'uploading' ? (
+            <>
+              <ActivityIndicator size="large" color="#6366F1" />
+              <Text style={styles.hint}>Uploading {pickedFile?.name}…</Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.title}>Aurafractor</Text>
+              <Text style={styles.subtitle}>
+                Upload a track and extract any instrument in plain language.
+              </Text>
+              <FilePicker onFilePicked={handleFilePicked} />
 
-            {error && (
-              <>
-                <Text style={styles.error}>{error}</Text>
-                {pickedFile && (
-                  <Pressable style={styles.secondaryButton} onPress={retry}>
-                    <Text style={styles.secondaryText}>Retry "{pickedFile.name}"</Text>
-                  </Pressable>
-                )}
-              </>
-            )}
-          </>
-        )}
+              {error && (
+                <>
+                  <Text style={styles.error}>{error}</Text>
+                  {pickedFile && (
+                    <Pressable style={styles.secondaryButton} onPress={retry}>
+                      <Text style={styles.secondaryText}>Retry "{pickedFile.name}"</Text>
+                    </Pressable>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </View>
       </View>
     );
   }
@@ -159,47 +141,50 @@ export default function UploadScreen() {
   if (phase === 'selecting' && trackInfo) {
     return (
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.sectionTitle}>AI Suggestions</Text>
-        <Text style={styles.meta}>
-          {trackInfo.genre.replace(/_/g, ' ')} · {trackInfo.tempo} BPM
-        </Text>
-        <View style={styles.chips}>
-          {trackInfo.suggestions.map((s) => (
-            <LabelChip
-              key={s.label}
-              suggestion={s}
-              selected={selected.has(s.label)}
-              onPress={() => toggleLabel(s.label)}
-            />
-          ))}
+        <View style={styles.inner}>
+          <Text style={styles.sectionTitle}>AI Suggestions</Text>
+          <Text style={styles.meta}>
+            {trackInfo.genre.replace(/_/g, ' ')} · {trackInfo.tempo} BPM
+          </Text>
+          <View style={styles.chips}>
+            {trackInfo.suggestions.map((s) => (
+              <LabelChip
+                key={s.label}
+                suggestion={s}
+                selected={selected.has(s.label)}
+                onPress={() => toggleLabel(s.label)}
+              />
+            ))}
+          </View>
+
+          <Text style={styles.sectionTitle}>Custom Label</Text>
+          <TextInput
+            style={styles.input}
+            placeholder='e.g. "dry lead vocals"'
+            value={customLabel}
+            onChangeText={setCustomLabel}
+            returnKeyType="done"
+          />
+
+          {error && <Text style={styles.error}>{error}</Text>}
+
+          <Pressable
+            style={[styles.button, isExtracting && styles.buttonDisabled]}
+            onPress={startExtraction}
+            disabled={isExtracting}
+          >
+            {isExtracting ? (
+              <ActivityIndicator color="#FFF" />
+            ) : (
+              <Text style={styles.buttonText}>Extract</Text>
+            )}
+          </Pressable>
+
+          <FilePicker onFilePicked={handleFilePicked} />
+          <Pressable style={styles.secondaryButton} onPress={() => setPhase('idle')}>
+            <Text style={styles.secondaryText}>← Upload different file</Text>
+          </Pressable>
         </View>
-
-        <Text style={styles.sectionTitle}>Custom Label</Text>
-        <TextInput
-          style={styles.input}
-          placeholder='e.g. "dry lead vocals"'
-          value={customLabel}
-          onChangeText={setCustomLabel}
-          returnKeyType="done"
-        />
-
-        {error && <Text style={styles.error}>{error}</Text>}
-
-        <Pressable
-          style={[styles.button, isExtracting && styles.buttonDisabled]}
-          onPress={startExtraction}
-          disabled={isExtracting}
-        >
-          {isExtracting ? (
-            <ActivityIndicator color="#FFF" />
-          ) : (
-            <Text style={styles.buttonText}>Extract</Text>
-          )}
-        </Pressable>
-
-        <Pressable style={styles.secondaryButton} onPress={pickAndUpload}>
-          <Text style={styles.secondaryText}>← Upload different file</Text>
-        </Pressable>
       </ScrollView>
     );
   }
@@ -208,8 +193,9 @@ export default function UploadScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 16 },
-  scroll: { padding: 20, gap: 12 },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
+  inner: { width: '100%', maxWidth: 600, gap: 16 },
+  scroll: { padding: 20, alignItems: 'center' },
   title: { fontSize: 32, fontWeight: '700', color: '#1E293B' },
   subtitle: { fontSize: 16, color: '#64748B', textAlign: 'center', lineHeight: 22 },
   sectionTitle: { fontSize: 14, fontWeight: '600', color: '#475569', marginTop: 8 },

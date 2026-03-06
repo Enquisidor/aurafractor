@@ -76,13 +76,13 @@ jobs:
             backend/htmlcov/
             backend/coverage.xml
 
-  mobile:
-    name: Mobile — Type Check & Test
+  ui:
+    name: UI — Type Check & Test
     runs-on: ubuntu-latest
 
     defaults:
       run:
-        working-directory: mobile
+        working-directory: ui
 
     steps:
       - uses: actions/checkout@v4
@@ -92,7 +92,7 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: mobile/package-lock.json
+          cache-dependency-path: ui/package-lock.json
 
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
@@ -107,7 +107,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: mobile-coverage
+          name: ui-coverage
           path: |
-            mobile/coverage/lcov-report/
-            mobile/coverage/lcov.info
+            ui/coverage/lcov-report/
+            ui/coverage/lcov.info
