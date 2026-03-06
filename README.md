@@ -182,8 +182,9 @@ Tiers: **Free** 100/mo · **Pro** 500/mo · **Studio** unlimited
 | `GCP_PROJECT_ID` | — | GCP project ID |
 | `GCP_REGION` | — | GCP region |
 | `CLOUD_TASKS_QUEUE` | — | Cloud Tasks queue name |
+| `DEV_DEVICE_IDS` | — | Comma-separated device IDs that register as Studio tier (unlimited credits) |
 
-See [backend/.env.example](backend/.env.example) for the full list.
+See [backend/.env](backend/.env) for the full list.
 
 ---
 

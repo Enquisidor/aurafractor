@@ -29,6 +29,11 @@ JWT_ALGORITHM = 'HS256'
 SESSION_TTL_HOURS = 24
 REFRESH_TTL_DAYS = 30
 
+# Device IDs that always receive Studio tier (unlimited credits).
+_DEV_DEVICE_IDS: set = {
+    d.strip() for d in os.getenv('DEV_DEVICE_IDS', '').split(',') if d.strip()
+}
+
 
 # ---------------------------------------------------------------------------
 # JWT helpers
@@ -86,9 +91,10 @@ def register_or_login(device_id: str, app_version: Optional[str] = None) -> Dict
     """
     # Check if user already exists
     user = get_user_by_device_id(device_id)
+    is_dev = device_id in _DEV_DEVICE_IDS
     if user is None:
-        logger.info('Registering new user device_id=%s', device_id[:8])
-        user = create_user(device_id, app_version)
+        logger.info('Registering new user device_id=%s dev=%s', device_id[:8], is_dev)
+        user = create_user(device_id, app_version, subscription_tier='studio' if is_dev else 'free')
         is_new = True
     else:
         logger.info('Login existing user user_id=%s', str(user['user_id'])[:8])
