@@ -61,7 +61,6 @@ jobs:
         run: |
           pytest tests/ \
             --cov=. \
-            --cov-omit="tests/*,*/__pycache__/*" \
             --cov-report=term-missing \
             --cov-fail-under=70 \
             -v
