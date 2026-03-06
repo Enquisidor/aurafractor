@@ -3,7 +3,7 @@
  * Network calls are mocked — no real backend required.
  */
 
-import { ApiError } from '../api/client';
+import { ApiError, BASE_URL } from '../api/client';
 
 describe('ApiError', () => {
   it('carries status code', () => {
@@ -19,8 +19,7 @@ describe('ApiError', () => {
 });
 
 describe('BASE_URL', () => {
-  it('exports a non-empty URL', async () => {
-    const { BASE_URL } = await import('../api/client');
+  it('exports a non-empty string', () => {
     expect(typeof BASE_URL).toBe('string');
     expect(BASE_URL.length).toBeGreaterThan(0);
   });
