@@ -3,9 +3,9 @@
  *
  * Loads the sound on mount, unloads on unmount.
  * Returns play/pause toggle + playback position.
+ * Degrades gracefully if ExponentAV native module is unavailable.
  */
 
-import { Audio, AVPlaybackStatus } from 'expo-av';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface AudioPlayerState {
@@ -30,7 +30,8 @@ const INITIAL_STATE: AudioPlayerState = {
 };
 
 export function useAudioPlayer(url: string): AudioPlayerState & AudioPlayerControls {
-  const soundRef = useRef<Audio.Sound | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const soundRef = useRef<any>(null);
   const [state, setState] = useState<AudioPlayerState>(INITIAL_STATE);
 
   useEffect(() => {
@@ -38,16 +39,18 @@ export function useAudioPlayer(url: string): AudioPlayerState & AudioPlayerContr
 
     (async () => {
       try {
+        // Dynamic import so a missing native module doesn't crash the whole app
+        const { Audio } = await import('expo-av');
         await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
         const { sound } = await Audio.Sound.createAsync(
           { uri: url },
           { shouldPlay: false },
-          (status: AVPlaybackStatus) => {
+          (status: { isLoaded: boolean; isPlaying?: boolean; positionMillis?: number; durationMillis?: number }) => {
             if (!mounted || !status.isLoaded) return;
             setState((prev) => ({
               ...prev,
-              isPlaying: status.isPlaying,
-              positionMs: status.positionMillis,
+              isPlaying: status.isPlaying ?? false,
+              positionMs: status.positionMillis ?? 0,
               durationMs: status.durationMillis ?? prev.durationMs,
               isLoading: false,
             }));
@@ -60,7 +63,7 @@ export function useAudioPlayer(url: string): AudioPlayerState & AudioPlayerContr
           setState((prev) => ({
             ...prev,
             isLoading: false,
-            error: e instanceof Error ? e.message : 'Audio load failed',
+            error: e instanceof Error ? e.message : 'Audio unavailable',
           }));
         }
       }
@@ -75,21 +78,22 @@ export function useAudioPlayer(url: string): AudioPlayerState & AudioPlayerContr
   const toggle = useCallback(async () => {
     const sound = soundRef.current;
     if (!sound) return;
-    const status = await sound.getStatusAsync();
-    if (!status.isLoaded) return;
-    if (status.isPlaying) {
-      await sound.pauseAsync();
-    } else {
-      // Restart from beginning if finished
-      if (status.positionMillis >= (status.durationMillis ?? 0) - 100) {
-        await sound.setPositionAsync(0);
+    try {
+      const status = await sound.getStatusAsync();
+      if (!status.isLoaded) return;
+      if (status.isPlaying) {
+        await sound.pauseAsync();
+      } else {
+        if (status.positionMillis >= (status.durationMillis ?? 0) - 100) {
+          await sound.setPositionAsync(0);
+        }
+        await sound.playAsync();
       }
-      await sound.playAsync();
-    }
+    } catch { /* native module unavailable */ }
   }, []);
 
   const seek = useCallback(async (ms: number) => {
-    await soundRef.current?.setPositionAsync(ms);
+    try { await soundRef.current?.setPositionAsync(ms); } catch { /* unavailable */ }
   }, []);
 
   return { ...state, toggle, seek };
