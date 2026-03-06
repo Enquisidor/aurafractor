@@ -27,10 +27,10 @@ def suggest_labels():
             'track_id': track_id,
             'suggested_labels': [
                 {'label': 'lead vocals', 'confidence': 0.94, 'frequency_range': [85, 255], 'recommended': True},
-                {'label': 'kick drum',   'confidence': 0.89, 'frequency_range': [20, 100], 'recommended': True},
-                {'label': 'snare',       'confidence': 0.81, 'frequency_range': [100, 5000], 'recommended': False},
-                {'label': 'bass',        'confidence': 0.76, 'frequency_range': [30, 250], 'recommended': True},
-                {'label': 'synth pad',   'confidence': 0.68, 'frequency_range': [200, 8000], 'recommended': True},
+                {'label': 'kick drum', 'confidence': 0.89, 'frequency_range': [20, 100], 'recommended': True},
+                {'label': 'snare', 'confidence': 0.81, 'frequency_range': [100, 5000], 'recommended': False},
+                {'label': 'bass', 'confidence': 0.76, 'frequency_range': [30, 250], 'recommended': True},
+                {'label': 'synth pad', 'confidence': 0.68, 'frequency_range': [200, 8000], 'recommended': True},
             ],
             'genre': 'indie_rock',
             'tempo': 94,
@@ -88,7 +88,7 @@ def extract():
 
     if MOCK_MODE:
         import uuid
-        from services.nlp import compute_ambiguity_score, parse_label_to_params
+        from services.nlp import compute_ambiguity_score
         ambiguous = [
             {'label': s['label'], 'ambiguity_score': compute_ambiguity_score(s['label'])}
             for s in sources if compute_ambiguity_score(s['label']) > 0.6

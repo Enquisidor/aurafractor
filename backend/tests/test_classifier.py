@@ -1,7 +1,6 @@
 """Unit tests for instrument classifier (mock mode)."""
 
-import pytest
-from ml_models.classifier import _mock_classify, _estimate_genre, _frequency_band_energies
+from ml_models.classifier import _mock_classify, _estimate_genre
 
 
 class TestMockClassify:

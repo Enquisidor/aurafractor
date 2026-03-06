@@ -1,7 +1,5 @@
 """Unit tests for auth service (token generation/verification)."""
 
-import pytest
-import time
 from services.auth import (
     generate_session_token,
     generate_refresh_token,

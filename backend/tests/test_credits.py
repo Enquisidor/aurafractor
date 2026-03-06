@@ -1,6 +1,5 @@
 """Unit tests for credit cost computation."""
 
-import pytest
 from services.credits import compute_extraction_cost, CREDIT_COSTS
 
 

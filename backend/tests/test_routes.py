@@ -1,6 +1,5 @@
 """Integration tests for API routes (mock mode, no real DB/GCS)."""
 
-import pytest
 import uuid
 
 
