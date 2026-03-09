@@ -137,28 +137,22 @@ jobs:
     needs: [backend, ui]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
-    # Required GitHub secrets:
-    #   GCP_PROJECT_ID               — your GCP project ID
-    #   GCP_REGION                   — e.g. us-central1
-    #   GCP_WORKLOAD_IDENTITY_PROVIDER — full WIF provider resource name
-    #   GCP_SERVICE_ACCOUNT          — deployer SA email
-    #   CLOUD_RUN_SERVICE            — Cloud Run service name, e.g. aurafractor-api
-    #   AR_REPO                      — Artifact Registry repo, e.g. aurafractor
+    # Required GitHub secrets (Settings → Secrets → Actions):
+    #   GCP_SA_KEY       — service account JSON key (base64-encoded or raw JSON)
+    #   GCP_PROJECT_ID   — your GCP project ID
+    #   GCP_REGION       — e.g. us-central1
+    #   CLOUD_RUN_SERVICE — Cloud Run service name, e.g. aurafractor-api
+    #   AR_REPO          — Artifact Registry repo name, e.g. aurafractor
     #
-    # One-time GCP setup (run locally):
-    #   gcloud artifacts repositories create aurafractor --repository-format=docker --location=$REGION
-    #   gcloud iam workload-identity-pools create github --location=global
-    #   gcloud iam workload-identity-pools providers create-oidc github \
-    #     --location=global --workload-identity-pool=github \
-    #     --issuer-uri=https://token.actions.githubusercontent.com \
-    #     --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository"
-    #   gcloud iam service-accounts add-iam-policy-binding $SA \
-    #     --role=roles/iam.workloadIdentityUser \
-    #     --member="principalSet://iam.googleapis.com/.../attribute.repository/YOUR_ORG/YOUR_REPO"
+    # One-time GCP setup:
+    #   1. IAM → Service Accounts → Create (e.g. github-deploy@PROJECT.iam.gserviceaccount.com)
+    #   2. Grant it roles: Cloud Run Admin, Artifact Registry Writer, Service Account User
+    #   3. Keys → Add Key → JSON → paste contents into GCP_SA_KEY secret
+    #   4. gcloud artifacts repositories create aurafractor \
+    #        --repository-format=docker --location=$REGION --project=$PROJECT_ID
 
     permissions:
       contents: read
-      id-token: write   # required for Workload Identity Federation
 
     steps:
       - uses: actions/checkout@v4
@@ -166,8 +160,7 @@ jobs:
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Set up Docker (Artifact Registry auth)
         run: gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev --quiet
