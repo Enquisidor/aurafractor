@@ -5,6 +5,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { LabelSuggestion } from '../api/client';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface Props {
   suggestion: LabelSuggestion;
@@ -13,18 +14,22 @@ interface Props {
 }
 
 export function LabelChip({ suggestion, selected, onPress }: Props) {
+  const { C } = useTheme();
   return (
     <Pressable
-      style={[styles.chip, selected && styles.selected]}
+      style={[
+        styles.chip,
+        { borderColor: selected ? C.primary : C.border, backgroundColor: selected ? C.primaryDim : C.surface },
+      ]}
       onPress={onPress}
       accessibilityRole="checkbox"
       accessibilityState={{ checked: selected }}
       accessibilityLabel={`${suggestion.label}, confidence ${Math.round(suggestion.confidence * 100)}%`}
     >
-      <Text style={[styles.label, selected && styles.labelSelected]}>
+      <Text style={[styles.label, { color: selected ? C.primary : C.textPrimary }]}>
         {suggestion.label}
       </Text>
-      <Text style={styles.confidence}>
+      <Text style={[styles.confidence, { color: C.textMuted }]}>
         {Math.round(suggestion.confidence * 100)}%
       </Text>
     </Pressable>
@@ -40,24 +45,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#F8FAFC',
     margin: 4,
-  },
-  selected: {
-    borderColor: '#6366F1',
-    backgroundColor: '#EEF2FF',
   },
   label: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#334155',
-  },
-  labelSelected: {
-    color: '#4338CA',
   },
   confidence: {
     fontSize: 11,
-    color: '#94A3B8',
   },
 });

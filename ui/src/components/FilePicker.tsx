@@ -6,6 +6,7 @@
 
 import React, { useRef } from 'react';
 import { Platform, Pressable, StyleSheet, Text } from 'react-native';
+import { useTheme } from '../contexts/ThemeContext';
 
 export interface PickedFile {
   uri: string;
@@ -21,6 +22,7 @@ interface Props {
 const AUDIO_TYPES = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/ogg', 'audio/*'];
 
 export function FilePicker({ onFilePicked, disabled }: Props) {
+  const { C } = useTheme();
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   if (Platform.OS === 'web') {
@@ -42,7 +44,7 @@ export function FilePicker({ onFilePicked, disabled }: Props) {
           }}
         />
         <Pressable
-          style={[styles.button, disabled && styles.buttonDisabled]}
+          style={[styles.button, { backgroundColor: C.fuchsia }, disabled && styles.buttonDisabled]}
           onPress={() => inputRef.current?.click()}
           disabled={disabled}
         >
@@ -52,11 +54,12 @@ export function FilePicker({ onFilePicked, disabled }: Props) {
     );
   }
 
-  // Native
+  // Native — use a single wildcard so the Android picker shows all audio files
+  // (passing an array of MIME types can result in an empty "Recent" view)
   const pickNative = async () => {
     const { getDocumentAsync } = await import('expo-document-picker');
     const result = await getDocumentAsync({
-      type: AUDIO_TYPES,
+      type: 'audio/*',
       copyToCacheDirectory: true,
     });
     if (result.canceled) return;
@@ -70,7 +73,7 @@ export function FilePicker({ onFilePicked, disabled }: Props) {
 
   return (
     <Pressable
-      style={[styles.button, disabled && styles.buttonDisabled]}
+      style={[styles.button, { backgroundColor: C.fuchsia }, disabled && styles.buttonDisabled]}
       onPress={pickNative}
       disabled={disabled}
     >
@@ -81,7 +84,6 @@ export function FilePicker({ onFilePicked, disabled }: Props) {
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: '#6366F1',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',

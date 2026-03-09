@@ -137,6 +137,8 @@ async function getToken(): Promise<string | null> {
   return storage.getItem('session_token');
 }
 
+const REQUEST_TIMEOUT_MS = 10_000;
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -153,7 +155,21 @@ async function request<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, { ...options, headers, signal: controller.signal });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new Error('Request timed out — backend unreachable');
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+
   const json = await res.json();
 
   if (!res.ok) {

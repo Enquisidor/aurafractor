@@ -2,7 +2,7 @@
  * Home / Upload screen.
  *
  * Flow:
- *  1. Pick audio file → upload → get track_id + suggestions
+ *  1. Pick audio file → confirm selection → upload → get track_id + suggestions
  *  2. User selects labels from chips (AI-suggested + custom text input)
  *  3. Press Extract → navigate to extraction/[id]
  *
@@ -22,13 +22,16 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useDispatch } from 'react-redux';
 import { extraction as extractionApi, upload as uploadApi, LabelSuggestion } from '../../src/api/client';
 import { FilePicker, PickedFile } from '../../src/components/FilePicker';
 import { LabelChip } from '../../src/components/LabelChip';
 import { useTheme } from '../../src/contexts/ThemeContext';
+import { AppDispatch } from '../../src/store/store';
+import { addEntry, markFailed, markUploaded } from '../../src/store/uploadQueueSlice';
 import { Theme } from '../../src/theme';
 
-type Phase = 'idle' | 'uploading' | 'selecting';
+type Phase = 'idle' | 'confirming' | 'uploading' | 'selecting';
 
 interface TrackInfo {
   trackId: string;
@@ -40,6 +43,7 @@ interface TrackInfo {
 export default function UploadScreen() {
   const { C } = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
+  const dispatch = useDispatch<AppDispatch>();
   const [phase, setPhase] = useState<Phase>('idle');
   const [isExtracting, setIsExtracting] = useState(false);
   const [pickedFile, setPickedFile] = useState<PickedFile | null>(null);
@@ -58,8 +62,12 @@ export default function UploadScreen() {
   const doUpload = async (file: PickedFile) => {
     setError(null);
     setPhase('uploading');
+    // Generate localId before dispatch so we can reference it for updates
+    const localId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    dispatch(addEntry({ localId, filename: file.name, fileUri: file.uri, mimeType: file.mimeType }));
     try {
       const uploadRes = await uploadApi.audio(file.uri, file.name, file.mimeType);
+      dispatch(markUploaded({ localId, trackId: uploadRes.track_id }));
       const suggestRes = await extractionApi.suggestLabels(uploadRes.track_id);
       setTrackInfo({
         trackId: uploadRes.track_id,
@@ -69,16 +77,20 @@ export default function UploadScreen() {
       });
       setPhase('selecting');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Upload failed');
-      setPhase('idle');
+      const msg = e instanceof Error ? e.message : 'Upload failed';
+      dispatch(markFailed({ localId, errorMessage: msg }));
+      setError(msg);
+      setPhase('confirming');
     }
   };
 
   const handleFilePicked = (file: PickedFile) => {
     setPickedFile(file);
-    doUpload(file);
+    setError(null);
+    setPhase('confirming');
   };
 
+  const confirmUpload = () => { if (pickedFile) doUpload(pickedFile); };
   const retry = () => { if (pickedFile) doUpload(pickedFile); };
 
   const startExtraction = async () => {
@@ -103,7 +115,7 @@ export default function UploadScreen() {
     }
   };
 
-  if (phase === 'idle' || phase === 'uploading') {
+  if (phase === 'idle' || phase === 'confirming' || phase === 'uploading') {
     return (
       <View style={s.container}>
         <View style={s.inner}>
@@ -111,6 +123,20 @@ export default function UploadScreen() {
             <>
               <ActivityIndicator size="large" color={C.primary} />
               <Text style={s.hint}>Uploading {pickedFile?.name}…</Text>
+            </>
+          ) : phase === 'confirming' && pickedFile ? (
+            <>
+              <Text style={s.title}>Ready to upload</Text>
+              <View style={s.fileCard}>
+                <Text style={s.fileName} numberOfLines={2}>{pickedFile.name}</Text>
+              </View>
+              <Pressable style={s.button} onPress={confirmUpload}>
+                <Text style={s.buttonText}>Upload & Analyse</Text>
+              </Pressable>
+              <FilePicker onFilePicked={handleFilePicked} />
+              <Pressable style={s.secondaryButton} onPress={() => setPhase('idle')}>
+                <Text style={s.secondaryText}>← Choose different file</Text>
+              </Pressable>
             </>
           ) : (
             <>
@@ -221,6 +247,16 @@ function makeStyles(C: Theme) {
     buttonText:       { color: '#FFF', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
     secondaryButton:  { alignItems: 'center', paddingVertical: 8 },
     secondaryText:    { color: C.primary, fontSize: 14, fontWeight: '500' },
+    fileCard: {
+      backgroundColor: C.surface,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderColor: C.border,
+      padding: 16,
+      width: '100%',
+      alignItems: 'center',
+    },
+    fileName:         { color: C.textPrimary, fontSize: 15, fontWeight: '600', textAlign: 'center' },
     hint:             { color: C.textMuted, marginTop: 12, fontSize: 14, textAlign: 'center' },
     error:            { color: C.error, fontSize: 13, textAlign: 'center' },
   });

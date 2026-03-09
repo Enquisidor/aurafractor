@@ -7,7 +7,7 @@
  */
 
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -18,6 +18,8 @@ import {
   View,
 } from 'react-native';
 import { extraction as extractionApi } from '../../src/api/client';
+import { useTheme } from '../../src/contexts/ThemeContext';
+import { Theme } from '../../src/theme';
 
 type FeedbackType = 'good' | 'too_much' | 'too_little' | 'artifacts';
 
@@ -29,6 +31,8 @@ const FEEDBACK_OPTIONS: Array<{ type: FeedbackType; label: string; emoji: string
 ];
 
 export default function FeedbackScreen() {
+  const { C } = useTheme();
+  const s = useMemo(() => makeStyles(C), [C]);
   const { extractionId, label } = useLocalSearchParams<{
     extractionId: string;
     label: string;
@@ -64,21 +68,21 @@ export default function FeedbackScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.scroll}>
-      <Text style={styles.heading}>Feedback for "{label}"</Text>
+    <ScrollView style={{ backgroundColor: C.bg }} contentContainerStyle={s.scroll}>
+      <Text style={s.heading}>Feedback for "{label}"</Text>
 
-      <Text style={styles.sectionTitle}>How did it sound?</Text>
-      <View style={styles.options}>
+      <Text style={s.sectionTitle}>How did it sound?</Text>
+      <View style={s.options}>
         {FEEDBACK_OPTIONS.map((opt) => (
           <Pressable
             key={opt.type}
-            style={[styles.option, feedbackType === opt.type && styles.optionSelected]}
+            style={[s.option, feedbackType === opt.type && s.optionSelected]}
             onPress={() => setFeedbackType(opt.type)}
             accessibilityRole="radio"
             accessibilityState={{ checked: feedbackType === opt.type }}
           >
-            <Text style={styles.optionEmoji}>{opt.emoji}</Text>
-            <Text style={[styles.optionLabel, feedbackType === opt.type && styles.optionLabelSelected]}>
+            <Text style={s.optionEmoji}>{opt.emoji}</Text>
+            <Text style={[s.optionLabel, feedbackType === opt.type && s.optionLabelSelected]}>
               {opt.label}
             </Text>
           </Pressable>
@@ -87,17 +91,19 @@ export default function FeedbackScreen() {
 
       {feedbackType && feedbackType !== 'good' && (
         <>
-          <Text style={styles.sectionTitle}>Refine label (triggers re-extraction)</Text>
+          <Text style={s.sectionTitle}>Refine label (triggers re-extraction)</Text>
           <TextInput
-            style={styles.input}
+            style={s.input}
             placeholder={`e.g. "dry ${label}"`}
+            placeholderTextColor={C.textMuted}
             value={refinedLabel}
             onChangeText={setRefinedLabel}
           />
-          <Text style={styles.sectionTitle}>Comment (optional)</Text>
+          <Text style={s.sectionTitle}>Comment (optional)</Text>
           <TextInput
-            style={[styles.input, styles.multiline]}
+            style={[s.input, s.multiline]}
             placeholder="Describe the issue…"
+            placeholderTextColor={C.textMuted}
             value={comment}
             onChangeText={setComment}
             multiline
@@ -106,65 +112,68 @@ export default function FeedbackScreen() {
         </>
       )}
 
-      {error && <Text style={styles.error}>{error}</Text>}
+      {error && <Text style={s.error}>{error}</Text>}
 
       <Pressable
-        style={[styles.button, (!feedbackType || submitting) && styles.buttonDisabled]}
+        style={[s.button, (!feedbackType || submitting) && s.buttonDisabled]}
         onPress={submit}
         disabled={!feedbackType || submitting}
       >
         {submitting ? (
           <ActivityIndicator color="#FFF" />
         ) : (
-          <Text style={styles.buttonText}>Submit Feedback</Text>
+          <Text style={s.buttonText}>Submit Feedback</Text>
         )}
       </Pressable>
 
-      <Pressable style={styles.cancelButton} onPress={() => router.back()}>
-        <Text style={styles.cancelText}>Cancel</Text>
+      <Pressable style={s.cancelButton} onPress={() => router.back()}>
+        <Text style={s.cancelText}>Cancel</Text>
       </Pressable>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { padding: 20, gap: 12 },
-  heading: { fontSize: 20, fontWeight: '700', color: '#1E293B' },
-  sectionTitle: { fontSize: 13, fontWeight: '600', color: '#475569', marginTop: 8 },
-  options: { gap: 8 },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-  },
-  optionSelected: { borderColor: '#6366F1', backgroundColor: '#EEF2FF' },
-  optionEmoji: { fontSize: 20 },
-  optionLabel: { fontSize: 15, color: '#334155' },
-  optionLabelSelected: { color: '#4338CA', fontWeight: '600' },
-  input: {
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 15,
-    backgroundColor: '#F8FAFC',
-  },
-  multiline: { minHeight: 80, textAlignVertical: 'top' },
-  error: { color: '#EF4444', fontSize: 13 },
-  button: {
-    backgroundColor: '#6366F1',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: { opacity: 0.5 },
-  buttonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
-  cancelButton: { alignItems: 'center', paddingVertical: 12 },
-  cancelText: { color: '#64748B', fontSize: 14 },
-});
+function makeStyles(C: Theme) {
+  return StyleSheet.create({
+    scroll:              { padding: 20, gap: 12 },
+    heading:             { fontSize: 20, fontWeight: '700', color: C.textPrimary },
+    sectionTitle:        { fontSize: 13, fontWeight: '600', color: C.textSecondary, marginTop: 8 },
+    options:             { gap: 8 },
+    option: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      padding: 14,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: C.border,
+      backgroundColor: C.surface,
+    },
+    optionSelected:      { borderColor: C.primary, backgroundColor: C.primaryDim },
+    optionEmoji:         { fontSize: 20 },
+    optionLabel:         { fontSize: 15, color: C.textPrimary },
+    optionLabelSelected: { color: C.primary, fontWeight: '600' },
+    input: {
+      borderWidth: 1,
+      borderColor: C.border,
+      borderRadius: 10,
+      padding: 12,
+      fontSize: 15,
+      color: C.textPrimary,
+      backgroundColor: C.surface,
+    },
+    multiline:     { minHeight: 80, textAlignVertical: 'top' },
+    error:         { color: C.error, fontSize: 13 },
+    button: {
+      backgroundColor: C.fuchsia,
+      paddingVertical: 14,
+      borderRadius: 12,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    buttonDisabled: { opacity: 0.5 },
+    buttonText:     { color: '#FFF', fontSize: 16, fontWeight: '600' },
+    cancelButton:   { alignItems: 'center', paddingVertical: 12 },
+    cancelText:     { color: C.textMuted, fontSize: 14 },
+  });
+}

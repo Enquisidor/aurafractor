@@ -4,19 +4,25 @@
 
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useTheme } from '../contexts/ThemeContext';
+import { Theme } from '../theme';
 
 type Status = 'queued' | 'processing' | 'completed' | 'failed' | 'awaiting_confirmation';
 
-const CONFIG: Record<Status, { label: string; bg: string; fg: string }> = {
-  queued: { label: 'Queued', bg: '#FEF3C7', fg: '#92400E' },
-  processing: { label: 'Processing…', bg: '#DBEAFE', fg: '#1E40AF' },
-  completed: { label: 'Completed', bg: '#D1FAE5', fg: '#065F46' },
-  failed: { label: 'Failed', bg: '#FEE2E2', fg: '#991B1B' },
-  awaiting_confirmation: { label: 'Confirm Labels', bg: '#FEF9C3', fg: '#713F12' },
-};
+function getConfig(C: Theme): Record<Status, { label: string; bg: string; fg: string }> {
+  return {
+    queued:                { label: 'Queued',         bg: C.warningDim, fg: C.warning },
+    processing:            { label: 'Processing…',    bg: C.primaryDim, fg: C.primary },
+    completed:             { label: 'Completed',       bg: C.successDim, fg: C.success },
+    failed:                { label: 'Failed',          bg: C.errorDim,   fg: C.error   },
+    awaiting_confirmation: { label: 'Confirm Labels', bg: C.warningDim, fg: C.warning },
+  };
+}
 
 export function StatusBadge({ status }: { status: Status }) {
-  const { label, bg, fg } = CONFIG[status] ?? CONFIG.queued;
+  const { C } = useTheme();
+  const config = getConfig(C);
+  const { label, bg, fg } = config[status] ?? config.queued;
   return (
     <View style={[styles.badge, { backgroundColor: bg }]}>
       <Text style={[styles.text, { color: fg }]}>{label}</Text>

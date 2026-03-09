@@ -5,7 +5,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -13,7 +12,6 @@ import {
   View,
 } from 'react-native';
 import { user as userApi, CreditsResponse } from '../../src/api/client';
-import { ErrorView } from '../../src/components/ErrorView';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { Theme } from '../../src/theme';
 
@@ -24,7 +22,7 @@ const TIER_LABEL: Record<string, string> = {
 };
 
 export default function CreditsScreen() {
-  const { C, isDark, toggleTheme } = useTheme();
+  const { C } = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const [data, setData] = useState<CreditsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,10 +46,8 @@ export default function CreditsScreen() {
   }, [load]);
 
   if (loading) return <ActivityIndicator style={s.centered} size="large" color={C.primary} />;
-  if (error) return <ErrorView message={error} />;
-  if (!data) return null;
 
-  const pct = data.monthly_allowance > 0
+  const pct = data && data.monthly_allowance > 0
     ? Math.min(1, data.current_balance / data.monthly_allowance)
     : 1;
 
@@ -61,47 +57,52 @@ export default function CreditsScreen() {
       contentContainerStyle={s.scroll}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
     >
-      {/* Balance card */}
-      <View style={s.card}>
-        <Text style={s.tier}>{TIER_LABEL[data.subscription_tier] ?? data.subscription_tier}</Text>
-        <Text style={s.balance}>{data.current_balance}</Text>
-        <Text style={s.balanceLabel}>credits remaining</Text>
-        <View style={s.barBg}>
-          <View style={[s.barFill, { flex: pct }]} />
-          <View style={{ flex: 1 - pct }} />
-        </View>
-        <Text style={s.resetDate}>Resets {new Date(data.reset_date).toLocaleDateString()}</Text>
-      </View>
-
-      {/* Usage this month */}
-      <View style={s.section}>
-        <Text style={s.sectionTitle}>This Month</Text>
-        <Row label="Extractions" value={String(data.usage_this_month.extractions)} s={s} />
-        <Row label="Credits spent" value={String(data.usage_this_month.credits_spent)} s={s} />
-      </View>
-
-      {/* Recent transactions */}
-      {data.recent_transactions.length > 0 && (
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Recent Transactions</Text>
-          {data.recent_transactions.map((tx, i) => (
-            <View key={i} style={s.tx}>
-              <View>
-                <Text style={s.txReason}>{tx.reason}</Text>
-                <Text style={s.txDate}>{new Date(tx.created_at).toLocaleDateString()}</Text>
-              </View>
-              <Text style={[s.txAmount, tx.amount < 0 ? s.debit : s.credit]}>
-                {tx.amount > 0 ? '+' : ''}{tx.amount}
-              </Text>
-            </View>
-          ))}
+      {error && (
+        <View style={s.errorBanner}>
+          <Text style={s.errorText}>Couldn't load credits — pull to retry</Text>
         </View>
       )}
+      {data && (
+        <>
+          {/* Balance card */}
+          <View style={s.card}>
+            <Text style={s.tier}>{TIER_LABEL[data.subscription_tier] ?? data.subscription_tier}</Text>
+            <Text style={s.balance}>{data.current_balance}</Text>
+            <Text style={s.balanceLabel}>credits remaining</Text>
+            <View style={s.barBg}>
+              <View style={[s.barFill, { flex: pct }]} />
+              <View style={{ flex: 1 - pct }} />
+            </View>
+            <Text style={s.resetDate}>Resets {new Date(data.reset_date).toLocaleDateString()}</Text>
+          </View>
 
-      {/* Theme toggle */}
-      <Pressable style={s.themeToggle} onPress={toggleTheme}>
-        <Text style={s.themeToggleText}>{isDark ? '☀️  Light mode' : '🌙  Dark mode'}</Text>
-      </Pressable>
+          {/* Usage this month */}
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>This Month</Text>
+            <Row label="Extractions" value={String(data.usage_this_month.extractions)} s={s} />
+            <Row label="Credits spent" value={String(data.usage_this_month.credits_spent)} s={s} />
+          </View>
+
+          {/* Recent transactions */}
+          {data.recent_transactions.length > 0 && (
+            <View style={s.section}>
+              <Text style={s.sectionTitle}>Recent Transactions</Text>
+              {data.recent_transactions.map((tx, i) => (
+                <View key={i} style={s.tx}>
+                  <View>
+                    <Text style={s.txReason}>{tx.reason}</Text>
+                    <Text style={s.txDate}>{new Date(tx.created_at).toLocaleDateString()}</Text>
+                  </View>
+                  <Text style={[s.txAmount, tx.amount < 0 ? s.debit : s.credit]}>
+                    {tx.amount > 0 ? '+' : ''}{tx.amount}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </>
+      )}
+
     </ScrollView>
   );
 }
@@ -159,16 +160,7 @@ function makeStyles(C: Theme) {
     txAmount: { fontSize: 15, fontWeight: '700' },
     debit:    { color: C.error },
     credit:   { color: C.success },
-    themeToggle: {
-      alignSelf: 'center',
-      paddingVertical: 10,
-      paddingHorizontal: 20,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: C.border,
-      backgroundColor: C.surface,
-      marginTop: 4,
-    },
-    themeToggleText: { color: C.textSecondary, fontSize: 14, fontWeight: '600' },
+    errorBanner: { backgroundColor: C.errorDim, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: C.error },
+    errorText:   { color: C.error, fontSize: 13, textAlign: 'center' },
   });
 }

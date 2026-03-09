@@ -5,14 +5,25 @@
 
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
+import { Provider } from 'react-redux';
 import { ThemeProvider, useTheme } from '../src/contexts/ThemeContext';
 import { useAuth } from '../src/hooks/useAuth';
+import { store } from '../src/store/store';
+import { hydrateUploadQueue, syncUploadQueue } from '../src/store/uploadQueueSlice';
 
 function RootLayoutInner() {
   const { loading, error } = useAuth();
   const { C, isDark } = useTheme();
+
+  // Hydrate the upload queue from storage once on mount
+  useEffect(() => { store.dispatch(hydrateUploadQueue()); }, []);
+
+  // Sync (retry queued uploads) whenever the backend becomes reachable
+  useEffect(() => {
+    if (!loading && !error) { store.dispatch(syncUploadQueue()); }
+  }, [loading, error]);
 
   return (
     <>
@@ -47,37 +58,21 @@ function RootLayoutInner() {
           <ActivityIndicator size="large" color={C.primary} />
         </View>
       )}
-      {/* Non-blocking banner on error — navigation still works */}
-      {!loading && error && (
-        <View style={[styles.banner, { backgroundColor: C.errorDim, borderBottomColor: C.error }]}>
-          <Text style={[styles.bannerText, { color: C.error }]}>
-            Backend unreachable — some features unavailable
-          </Text>
-        </View>
-      )}
+      {/* Banner is shown in the tabs layout so it never overlaps Stack headers */}
     </>
   );
 }
 
 export default function RootLayout() {
   return (
-    <ThemeProvider>
-      <RootLayoutInner />
-    </ThemeProvider>
+    <Provider store={store}>
+      <ThemeProvider>
+        <RootLayoutInner />
+      </ThemeProvider>
+    </Provider>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
-  banner: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    zIndex: 999,
-  },
-  bannerText: { fontSize: 13, textAlign: 'center', fontWeight: '500' },
 });

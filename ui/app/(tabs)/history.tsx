@@ -13,17 +13,25 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSelector } from 'react-redux';
 import { user as userApi, TrackSummary } from '../../src/api/client';
-import { ErrorView } from '../../src/components/ErrorView';
 import { StatusBadge } from '../../src/components/StatusBadge';
 import { useTheme } from '../../src/contexts/ThemeContext';
+import { RootState } from '../../src/store/store';
+import { UploadEntry } from '../../src/store/uploadQueueSlice';
 import { Theme } from '../../src/theme'; // used by makeStyles + TrackRow
 
 const PAGE_SIZE = 20;
 
+// Unified row shape for both server and local-only entries
+type HistoryRow =
+  | { kind: 'server'; track: TrackSummary }
+  | { kind: 'local';  entry: UploadEntry };
+
 export default function HistoryScreen() {
   const { C } = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
+  const queueEntries = useSelector((state: RootState) => state.uploadQueue.entries);
   const [tracks, setTracks] = useState<TrackSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -36,6 +44,7 @@ export default function HistoryScreen() {
       const res = await userApi.history(PAGE_SIZE, offset);
       setTotal(res.total_tracks);
       setTracks((prev) => (replace ? res.tracks : [...prev, ...res.tracks]));
+      setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load history');
     }
@@ -57,21 +66,57 @@ export default function HistoryScreen() {
   }, [load, loadingMore, tracks.length, total]);
 
   if (loading) return <ActivityIndicator style={s.centered} size="large" color={C.primary} />;
-  if (error) return <ErrorView message={error} />;
+
+  // Build unified list: server rows first, then local entries whose trackId
+  // doesn't appear in the server list (failed/uploading attempts).
+  const serverTrackIds = new Set(tracks.map((t) => t.track_id));
+  const localOnly = queueEntries.filter(
+    (e: UploadEntry) => !e.trackId || !serverTrackIds.has(e.trackId),
+  );
+  const rows: HistoryRow[] = [
+    ...localOnly.map((entry): HistoryRow => ({ kind: 'local', entry })),
+    ...tracks.map((track): HistoryRow => ({ kind: 'server', track })),
+  ];
 
   return (
     <FlatList
       style={s.list}
-      data={tracks}
-      keyExtractor={(t) => t.track_id}
+      data={rows}
+      keyExtractor={(r) => r.kind === 'server' ? r.track.track_id : `local-${r.entry.localId}`}
       contentContainerStyle={s.listContent}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
       onEndReached={onEndReached}
       onEndReachedThreshold={0.2}
+      ListHeaderComponent={error ? (
+        <View style={s.errorBanner}>
+          <Text style={s.errorText}>Couldn't reach server — showing local history</Text>
+        </View>
+      ) : null}
       ListEmptyComponent={<Text style={s.empty}>No tracks yet. Upload one!</Text>}
       ListFooterComponent={loadingMore ? <ActivityIndicator color={C.primary} /> : null}
-      renderItem={({ item }) => <TrackRow track={item} s={s} />}
+      renderItem={({ item }) =>
+        item.kind === 'server'
+          ? <TrackRow track={item.track} s={s} />
+          : <LocalRow entry={item.entry} s={s} />
+      }
     />
+  );
+}
+
+const STATUS_LABEL: Record<string, string> = { uploading: 'Uploading…', uploaded: 'Uploaded', failed: 'Failed' };
+
+function LocalRow({ entry, s }: { entry: UploadEntry; s: ReturnType<typeof makeStyles> }) {
+  const isFailed = entry.status === 'failed';
+  return (
+    <View style={[s.row, isFailed && s.rowFailed]}>
+      <View style={s.rowMain}>
+        <Text style={s.filename} numberOfLines={1}>{entry.filename}</Text>
+        <Text style={s.meta}>
+          {new Date(entry.attemptedAt).toLocaleDateString()} · {entry.errorMessage ?? STATUS_LABEL[entry.status]}
+        </Text>
+      </View>
+      <StatusBadge status={isFailed ? 'failed' : 'processing'} />
+    </View>
   );
 }
 
@@ -115,5 +160,8 @@ function makeStyles(C: Theme) {
     rowMain: { flex: 1, gap: 4 },
     filename:    { fontSize: 15, fontWeight: '600', color: C.textPrimary },
     meta:        { fontSize: 12, color: C.textMuted },
+    rowFailed:   { borderColor: C.error, backgroundColor: C.errorDim },
+    errorBanner: { backgroundColor: C.errorDim, borderRadius: 10, padding: 12, marginBottom: 8 },
+    errorText:   { color: C.error, fontSize: 13, textAlign: 'center' },
   });
 }
