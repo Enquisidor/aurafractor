@@ -167,6 +167,9 @@ jobs:
           REGION: ${{ secrets.GCP_REGION }}
         run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
 
+      - name: Verify Artifact Registry repo exists
+        run: gcloud artifacts repositories list --project=${{ secrets.GCP_PROJECT_ID }} --format="table(name,location)"
+
       - name: Build and push image
         env:
           REGION: ${{ secrets.GCP_REGION }}
