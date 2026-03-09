@@ -11,7 +11,7 @@ const DEV_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
 
 export const BASE_URL = __DEV__
   ? `http://${DEV_HOST}:5001`
-  : 'https://api.<your-domain>.com';   // Cloud Run custom domain — set in GCP console
+  : 'https://api.aurafractor.com';
 
 // ---------------------------------------------------------------------------
 // Types
