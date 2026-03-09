@@ -130,3 +130,58 @@ jobs:
             ui/dist/web/
             ui/dist/android/
             ui/dist/ios/
+
+  deploy:
+    name: Deploy — Cloud Run
+    runs-on: ubuntu-latest
+    needs: [backend, ui]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    # Required GitHub secrets:
+    #   GCP_PROJECT_ID               — your GCP project ID
+    #   GCP_REGION                   — e.g. us-central1
+    #   GCP_WORKLOAD_IDENTITY_PROVIDER — full WIF provider resource name
+    #   GCP_SERVICE_ACCOUNT          — deployer SA email
+    #   CLOUD_RUN_SERVICE            — Cloud Run service name, e.g. aurafractor-api
+    #   AR_REPO                      — Artifact Registry repo, e.g. aurafractor
+    #
+    # One-time GCP setup (run locally):
+    #   gcloud artifacts repositories create aurafractor --repository-format=docker --location=$REGION
+    #   gcloud iam workload-identity-pools create github --location=global
+    #   gcloud iam workload-identity-pools providers create-oidc github \
+    #     --location=global --workload-identity-pool=github \
+    #     --issuer-uri=https://token.actions.githubusercontent.com \
+    #     --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository"
+    #   gcloud iam service-accounts add-iam-policy-binding $SA \
+    #     --role=roles/iam.workloadIdentityUser \
+    #     --member="principalSet://iam.googleapis.com/.../attribute.repository/YOUR_ORG/YOUR_REPO"
+
+    permissions:
+      contents: read
+      id-token: write   # required for Workload Identity Federation
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Docker (Artifact Registry auth)
+        run: gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push image
+        env:
+          IMAGE: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.AR_REPO }}/api
+        run: |
+          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest -f backend/Dockerfile backend
+          docker push --all-tags $IMAGE
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ secrets.CLOUD_RUN_SERVICE }}
+          region: ${{ secrets.GCP_REGION }}
+          image: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.AR_REPO }}/api:${{ github.sha }}
