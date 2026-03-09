@@ -211,9 +211,10 @@ export const auth = {
 // ---------------------------------------------------------------------------
 
 export const upload = {
-  audio: async (fileUri: string, filename: string, mimeType: string): Promise<UploadResponse> => {
+  audio: async (fileUri: string, filename: string, mimeType: string, clientId?: string): Promise<UploadResponse> => {
     const formData = new FormData();
     formData.append('file', { uri: fileUri, name: filename, type: mimeType } as unknown as Blob);
+    if (clientId) formData.append('client_id', clientId);
     return request<UploadResponse>('/upload', { method: 'POST', body: formData }, true);
   },
 };

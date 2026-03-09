@@ -21,13 +21,21 @@ def create_track(
     genre_detected: Optional[str] = None,
     tempo_detected: Optional[int] = None,
     spectral_hash: Optional[str] = None,
+    client_id: Optional[str] = None,
 ) -> Dict:
-    """Insert a track record and return the full row."""
+    """Insert a track record and return the full row.
+
+    If *client_id* is provided and a track with the same (user_id, client_id)
+    already exists, the existing row is returned unchanged (idempotent retry).
+    """
     sql = """
         INSERT INTO tracks
             (user_id, filename, duration_seconds, format, gcs_path,
-             file_size_mb, sample_rate, genre_detected, tempo_detected, spectral_hash)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+             file_size_mb, sample_rate, genre_detected, tempo_detected, spectral_hash,
+             client_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (user_id, client_id) WHERE client_id IS NOT NULL
+        DO UPDATE SET client_id = EXCLUDED.client_id
         RETURNING *
     """
     with db_transaction() as conn:
@@ -35,6 +43,7 @@ def create_track(
             cur.execute(sql, (
                 user_id, filename, duration_seconds, format, gcs_path,
                 file_size_mb, sample_rate, genre_detected, tempo_detected, spectral_hash,
+                client_id,
             ))
             return dict(cur.fetchone())
 

@@ -66,7 +66,7 @@ export default function UploadScreen() {
     const localId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     dispatch(addEntry({ localId, filename: file.name, fileUri: file.uri, mimeType: file.mimeType }));
     try {
-      const uploadRes = await uploadApi.audio(file.uri, file.name, file.mimeType);
+      const uploadRes = await uploadApi.audio(file.uri, file.name, file.mimeType, localId);
       dispatch(markUploaded({ localId, trackId: uploadRes.track_id }));
       const suggestRes = await extractionApi.suggestLabels(uploadRes.track_id);
       setTrackInfo({

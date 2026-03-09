@@ -71,7 +71,7 @@ export const syncUploadQueue = createAsyncThunk(
     for (const entry of queued) {
       dispatch(uploadQueueSlice.actions.setStatus({ localId: entry.localId, status: 'uploading' }));
       try {
-        const uploadRes = await uploadApi.audio(entry.fileUri, entry.filename, entry.mimeType);
+        const uploadRes = await uploadApi.audio(entry.fileUri, entry.filename, entry.mimeType, entry.localId);
         await extractionApi.suggestLabels(uploadRes.track_id); // warm the track
         dispatch(uploadQueueSlice.actions.markUploaded({
           localId: entry.localId,

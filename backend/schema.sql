@@ -37,15 +37,18 @@ CREATE TABLE tracks (
     genre_detected VARCHAR(100),
     tempo_detected INTEGER,
     spectral_hash VARCHAR(256),
+    client_id VARCHAR(64),
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
-    
+
     CONSTRAINT valid_duration CHECK (duration_seconds > 0)
 );
 
 CREATE INDEX idx_tracks_user_id ON tracks(user_id);
 CREATE INDEX idx_tracks_uploaded_at ON tracks(uploaded_at);
 CREATE INDEX idx_tracks_deleted_at ON tracks(deleted_at);
+-- Partial unique index: one track per (user, client_id), NULLs excluded so legacy rows are unaffected
+CREATE UNIQUE INDEX idx_tracks_user_client_id ON tracks(user_id, client_id) WHERE client_id IS NOT NULL;
 
 -- Extractions table
 CREATE TABLE extractions (
