@@ -39,7 +39,7 @@ jobs:
           password: ${{ secrets.GCP_SA_KEY }}
 
       - name: Verify Artifact Registry repo exists
-        run: gcloud artifacts repositories list --project=${{ secrets.GCP_PROJECT_ID }} --format="table(name,location)"
+        run: gcloud artifacts repositories list --project=${{ secrets.GCP_PROJECT_ID }} --location=${{ secrets.GCP_REGION }} --format="table(name,location)"
 
       - name: Build and push image
         env:
