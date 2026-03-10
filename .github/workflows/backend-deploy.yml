@@ -44,6 +44,7 @@ jobs:
           REPO: ${{ secrets.AR_REPO }}
         run: |
           IMAGE="${REGION}-docker.pkg.dev/${PROJECT}/${REPO}/api"
+          echo "Pushing to: ${IMAGE}"
           docker build -t "$IMAGE:${{ env.SHA }}" -t "$IMAGE:latest" -f backend/Dockerfile backend
           docker push --all-tags "$IMAGE"
 
