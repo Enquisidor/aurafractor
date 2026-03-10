@@ -30,9 +30,25 @@ jobs:
 
       - name: Build and push via Cloud Build
         run: |
-          gcloud builds submit backend \
+          BUILD_ID=$(gcloud builds submit backend \
             --tag="${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.AR_REPO }}/api:${{ env.SHA }}" \
-            --project="${{ secrets.GCP_PROJECT_ID }}"
+            --project="${{ secrets.GCP_PROJECT_ID }}" \
+            --async \
+            --format='value(id)')
+          echo "Cloud Build ID: $BUILD_ID"
+          while true; do
+            STATUS=$(gcloud builds describe "$BUILD_ID" \
+              --project="${{ secrets.GCP_PROJECT_ID }}" \
+              --format='value(status)')
+            echo "Status: $STATUS"
+            case "$STATUS" in
+              SUCCESS) break ;;
+              FAILURE|CANCELLED|TIMEOUT|INTERNAL_ERROR)
+                echo "Build failed: $STATUS"
+                exit 1 ;;
+            esac
+            sleep 15
+          done
 
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
