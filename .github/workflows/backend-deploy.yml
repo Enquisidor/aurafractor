@@ -28,25 +28,11 @@ jobs:
           gcloud auth activate-service-account --key-file=/tmp/sa-key.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa-key.json" >> $GITHUB_ENV
 
-      - name: Log in to Artifact Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ secrets.GCP_REGION }}-docker.pkg.dev
-          username: _json_key
-          password: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Verify Artifact Registry repo exists
-        run: gcloud artifacts repositories list --project=${{ secrets.GCP_PROJECT_ID }} --location=${{ secrets.GCP_REGION }} --format="table(name,location)"
-
-      - name: Build and push image
-        env:
-          REGION: ${{ secrets.GCP_REGION }}
-          PROJECT: ${{ secrets.GCP_PROJECT_ID }}
-          REPO: ${{ secrets.AR_REPO }}
+      - name: Build and push via Cloud Build
         run: |
-          IMAGE="${REGION}-docker.pkg.dev/${PROJECT}/${REPO}/api"
-          docker build -t "$IMAGE:${{ env.SHA }}" -t "$IMAGE:latest" -f backend/Dockerfile backend
-          docker push --all-tags "$IMAGE"
+          gcloud builds submit backend \
+            --tag="${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.AR_REPO }}/api:${{ env.SHA }}" \
+            --project="${{ secrets.GCP_PROJECT_ID }}"
 
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
