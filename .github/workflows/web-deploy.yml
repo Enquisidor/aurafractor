@@ -5,17 +5,19 @@ on:
     workflows: ["Web — Build"]
     branches: [main]
     types: [completed]
+  workflow_dispatch:
 
 jobs:
   deploy:
     name: Deploy Web
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Download web dist
+        if: ${{ github.event_name == 'workflow_run' }}
         uses: actions/download-artifact@v4
         with:
           name: web-dist-${{ github.event.workflow_run.head_sha }}
@@ -23,6 +25,6 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
 
-      # TODO: add hosting deploy here (e.g. Firebase Hosting, Cloudflare Pages)
+      # TODO: add hosting deploy here (e.g. Cloudflare Pages)
       - name: Deploy
         run: echo "Deploy step — add your hosting provider here"

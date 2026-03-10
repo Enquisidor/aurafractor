@@ -5,15 +5,19 @@ on:
     workflows: ["Backend — Build"]
     branches: [main]
     types: [completed]
+  workflow_dispatch:
 
 jobs:
   deploy:
     name: Deploy to Cloud Run
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     permissions:
       contents: read
+
+    env:
+      SHA: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}
 
     steps:
       - uses: actions/checkout@v4
@@ -38,7 +42,7 @@ jobs:
           REPO: ${{ secrets.AR_REPO }}
         run: |
           IMAGE="${REGION}-docker.pkg.dev/${PROJECT}/${REPO}/api"
-          docker build -t "$IMAGE:${{ github.event.workflow_run.head_sha }}" -t "$IMAGE:latest" -f backend/Dockerfile backend
+          docker build -t "$IMAGE:${{ env.SHA }}" -t "$IMAGE:latest" -f backend/Dockerfile backend
           docker push --all-tags "$IMAGE"
 
       - name: Deploy to Cloud Run
@@ -46,4 +50,4 @@ jobs:
         with:
           service: ${{ secrets.CLOUD_RUN_SERVICE }}
           region: ${{ secrets.GCP_REGION }}
-          image: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.AR_REPO }}/api:${{ github.event.workflow_run.head_sha }}
+          image: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.AR_REPO }}/api:${{ env.SHA }}
