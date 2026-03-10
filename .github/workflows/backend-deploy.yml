@@ -22,19 +22,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Authenticate to GCP
-        id: auth
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-          token_format: access_token
-
       - name: Log in to Artifact Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ secrets.GCP_REGION }}-docker.pkg.dev
-          username: oauth2accesstoken
-          password: ${{ steps.auth.outputs.access_token }}
+          username: _json_key
+          password: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Authenticate to GCP (for gcloud commands)
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Verify Artifact Registry repo exists
         run: gcloud artifacts repositories list --project=${{ secrets.GCP_PROJECT_ID }} --format="table(name,location)"
