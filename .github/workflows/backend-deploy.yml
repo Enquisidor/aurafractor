@@ -22,17 +22,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Authenticate gcloud
+        run: |
+          echo '${{ secrets.GCP_SA_KEY }}' > /tmp/sa-key.json
+          gcloud auth activate-service-account --key-file=/tmp/sa-key.json
+          rm /tmp/sa-key.json
+
       - name: Log in to Artifact Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ secrets.GCP_REGION }}-docker.pkg.dev
           username: _json_key
           password: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Authenticate to GCP (for gcloud commands)
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Verify Artifact Registry repo exists
         run: gcloud artifacts repositories list --project=${{ secrets.GCP_PROJECT_ID }} --format="table(name,location)"
