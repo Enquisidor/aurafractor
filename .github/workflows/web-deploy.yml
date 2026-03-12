@@ -25,6 +25,11 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
 
-      # TODO: add hosting deploy here (e.g. Cloudflare Pages)
-      - name: Deploy
-        run: echo "Deploy step — add your hosting provider here"
+      - name: Firebase Deploy
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SCROBBLEDISCOGS }}
+          channelId: live
+          projectId: aurafractor
+          entryPoint: ui
