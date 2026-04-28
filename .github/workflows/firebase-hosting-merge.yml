@@ -21,7 +21,16 @@ jobs:
         run: npm ci --legacy-peer-deps
       - name: Export web bundle
         working-directory: ui
-        run: npx expo export --platform web --output-dir dist
+        env:
+          NODE_ENV: production
+          EXPO_NO_TELEMETRY: 1
+        run: |
+          rm -rf dist
+          npx expo export --platform web --output-dir dist
+          echo "--- dist/ contents ---"
+          find dist -type f | sort
+          echo "--- end ---"
+          test -f dist/index.html || { echo "ERROR: dist/index.html was not generated"; exit 1; }
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
