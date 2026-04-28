@@ -21,7 +21,7 @@ jobs:
         run: npm ci --legacy-peer-deps
       - name: Export web bundle
         working-directory: ui
-        run: npx expo export --platform web --output-dir public
+        run: npx expo export --platform web --output-dir dist
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
