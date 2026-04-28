@@ -9,6 +9,7 @@ import logging
 from datetime import datetime
 
 from flask import Flask, jsonify
+from flask_cors import CORS
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -27,6 +28,13 @@ MOCK_MODE = os.getenv('ENABLE_MOCK_RESPONSES', 'false').lower() == 'true'
 def create_app(testing: bool = False) -> Flask:
     app = Flask(__name__)
     app.config['JSON_SORT_KEYS'] = False
+
+    # CORS — allow requests from the web frontend
+    allowed_origins = os.getenv(
+        'ALLOWED_ORIGINS',
+        'https://aurafractor.web.app,https://aurafractor.firebaseapp.com',
+    ).split(',')
+    CORS(app, origins=allowed_origins, supports_credentials=True)
 
     # Rate limiter (disabled in test mode to prevent interference)
     if testing:
