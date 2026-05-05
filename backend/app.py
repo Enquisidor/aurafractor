@@ -29,11 +29,29 @@ def create_app(testing: bool = False) -> Flask:
     app = Flask(__name__)
     app.config['JSON_SORT_KEYS'] = False
 
-    # CORS — allow requests from the web frontend
-    allowed_origins = os.getenv(
-        'ALLOWED_ORIGINS',
-        'https://aurafractor.web.app,https://aurafractor.firebaseapp.com',
-    ).split(',')
+    # CORS — allow requests from the web frontend.
+    # Production: Firebase Hosting origins.
+    # Development: Expo web dev server (8081) and the Docker-mapped API port (5001).
+    # Override via ALLOWED_ORIGINS env var (comma-separated) for any environment.
+    flask_env = os.getenv('FLASK_ENV', 'production')
+    if flask_env == 'development':
+        default_origins = (
+            'https://aurafractor.web.app,'
+            'https://aurafractor.firebaseapp.com,'
+            'http://localhost:8081,'
+            'http://localhost:5001,'
+            'http://localhost:5000,'
+            'http://127.0.0.1:8081,'
+            'http://127.0.0.1:5001,'
+            'http://127.0.0.1:5000'
+        )
+    else:
+        default_origins = 'https://aurafractor.web.app,https://aurafractor.firebaseapp.com'
+    allowed_origins = [
+        o.strip()
+        for o in os.getenv('ALLOWED_ORIGINS', default_origins).split(',')
+        if o.strip()
+    ]
     CORS(app, origins=allowed_origins, supports_credentials=True)
 
     # Rate limiter (disabled in test mode to prevent interference)

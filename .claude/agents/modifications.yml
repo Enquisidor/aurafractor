@@ -2,7 +2,7 @@
 # Re-run /setup-agents to replay modifications interactively.
 
 version: 1
-generated: "2026-04-28T00:00:00Z"
+generated: "2026-05-05T00:00:00Z"
 library_path: /Users/alexweinstein/Documents/Code/skyfly/app-dev-agents
 
 project:
