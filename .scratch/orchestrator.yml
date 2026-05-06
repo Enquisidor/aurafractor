@@ -1,0 +1,34 @@
+agent: orchestrator
+session_id: cors-fix-001
+last_updated: "2026-05-06T00:10:00Z"
+status: complete
+
+current_task: CORS fixes implemented — awaiting human verification
+
+tasks:
+  cors-investigation:
+    description: Investigate current CORS configuration in backend/app.py and ui/src/api/client.ts
+    status: complete
+    started_at: "2026-05-06T00:00:00Z"
+    completed_at: "2026-05-06T00:05:00Z"
+    output: null
+    notes: >
+      Found two root causes: (1) CORS allow_headers and methods not explicit;
+      (2) mock-mode require_auth required X-User-ID header which the frontend never sends,
+      breaking all authenticated endpoints in local development.
+
+  cors-fix-backend:
+    description: Fix CORS allow_headers/methods in app.py and fix mock-mode auth in decorators.py
+    status: complete
+    started_at: "2026-05-06T00:05:00Z"
+    completed_at: "2026-05-06T00:10:00Z"
+    output: |
+      backend/app.py
+      backend/utils/decorators.py
+    notes: >
+      CORS: added explicit allow_headers, methods, OPTIONS to CORS() call.
+      Auth: mock-mode require_auth now decodes JWT from Authorization header instead
+      of requiring X-User-ID. Test suite auth_headers fixture sends a real JWT so
+      tests remain compatible.
+
+blockers: []

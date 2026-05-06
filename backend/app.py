@@ -24,6 +24,20 @@ logger = logging.getLogger(__name__)
 
 MOCK_MODE = os.getenv('ENABLE_MOCK_RESPONSES', 'false').lower() == 'true'
 
+# Headers the browser is explicitly permitted to send in cross-origin requests.
+# Authorization — JWT bearer token
+# Content-Type  — application/json and multipart/form-data bodies
+# X-Worker-Secret — internal worker callback authentication
+_CORS_ALLOW_HEADERS = [
+    'Authorization',
+    'Content-Type',
+    'X-Worker-Secret',
+]
+
+# HTTP methods used by the frontend API client.
+# OPTIONS is required for the browser preflight request itself.
+_CORS_ALLOW_METHODS = ['GET', 'POST', 'DELETE', 'OPTIONS']
+
 
 def create_app(testing: bool = False) -> Flask:
     app = Flask(__name__)
@@ -52,7 +66,13 @@ def create_app(testing: bool = False) -> Flask:
         for o in os.getenv('ALLOWED_ORIGINS', default_origins).split(',')
         if o.strip()
     ]
-    CORS(app, origins=allowed_origins, supports_credentials=True)
+    CORS(
+        app,
+        origins=allowed_origins,
+        supports_credentials=True,
+        allow_headers=_CORS_ALLOW_HEADERS,
+        methods=_CORS_ALLOW_METHODS,
+    )
 
     # Rate limiter (disabled in test mode to prevent interference)
     if testing:

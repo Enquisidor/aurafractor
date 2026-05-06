@@ -10,6 +10,8 @@ import os
 from functools import wraps
 from typing import Callable
 
+import jwt as _jwt
+
 from flask import request, jsonify, g
 
 logger = logging.getLogger(__name__)
@@ -17,13 +19,22 @@ logger = logging.getLogger(__name__)
 WORKER_SECRET = os.getenv('WORKER_SECRET', 'worker-secret')
 MOCK_MODE = os.getenv('ENABLE_MOCK_RESPONSES', 'false').lower() == 'true'
 
+_JWT_SECRET = os.getenv('JWT_SECRET', 'dev-secret')
+_JWT_ALGORITHM = 'HS256'
+
 
 def _error(message: str, status: int):
     return jsonify({'error': message}), status
 
 
 def require_auth(f: Callable) -> Callable:
-    """Decorator: verify Bearer JWT and set g.user (the full user dict)."""
+    """Decorator: verify Bearer JWT and set g.user (the full user dict).
+
+    In mock mode the token is verified using the same JWT secret as production
+    so that the frontend does not need to send any additional headers. The
+    X-User-ID header (used by the test suite) is accepted but not required —
+    the user_id is always extracted from the JWT payload.
+    """
     @wraps(f)
     def decorated(*args, **kwargs):
         auth_header = request.headers.get('Authorization', '')
@@ -33,15 +44,18 @@ def require_auth(f: Callable) -> Callable:
         token = auth_header[len('Bearer '):]
 
         if MOCK_MODE:
-            # In mock mode, accept any token but validate X-User-ID header
-            user_id = request.headers.get('X-User-ID', '')
-            if not user_id:
-                return _error('Unauthorized: missing X-User-ID header in mock mode', 401)
+            # Decode the JWT to extract user_id — avoids requiring a
+            # non-standard X-User-ID header from every API client.
             try:
-                import uuid
-                uuid.UUID(user_id)
-            except ValueError:
-                return _error('Unauthorized: invalid X-User-ID format', 401)
+                payload = _jwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALGORITHM])
+                if payload.get('type') != 'session':
+                    return _error('Unauthorized: invalid token type', 401)
+                user_id = payload['user_id']
+            except _jwt.ExpiredSignatureError:
+                return _error('Unauthorized: token expired', 401)
+            except Exception:
+                return _error('Unauthorized: invalid token', 401)
+
             g.user = {'user_id': user_id, 'subscription_tier': 'free', 'credits_balance': 100}
             return f(*args, **kwargs)
 
