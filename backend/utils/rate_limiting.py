@@ -11,7 +11,7 @@ create_app(), so blueprints can import it directly.
 
 import logging
 
-from flask import g
+from flask import g, request
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
@@ -32,3 +32,16 @@ limiter = Limiter(
     default_limits=["300 per hour", "60 per minute"],
     storage_uri="memory://",
 )
+
+
+@limiter.request_filter
+def _exempt_options_preflight() -> bool:
+    """Skip rate limiting for all OPTIONS preflight requests.
+
+    Browser CORS preflight requests use OPTIONS.  Counting them against the
+    rate limit would consume quota without any actual API work being done, and
+    a 429 returned to a preflight lacks CORS headers (the limiter fires in
+    before_request, before Flask-CORS's after_request hook attaches headers),
+    which causes the browser to treat the CORS handshake as failed.
+    """
+    return request.method == "OPTIONS"
