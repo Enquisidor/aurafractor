@@ -1,9 +1,9 @@
 agent: orchestrator
 session_id: cors-fix-001
-last_updated: "2026-05-06T00:10:00Z"
+last_updated: "2026-05-06T12:30:00Z"
 status: complete
 
-current_task: CORS fixes implemented — awaiting human verification
+current_task: CORS end-to-end verification complete — no additional fixes required
 
 tasks:
   cors-investigation:
@@ -30,5 +30,30 @@ tasks:
       Auth: mock-mode require_auth now decodes JWT from Authorization header instead
       of requiring X-User-ID. Test suite auth_headers fixture sends a real JWT so
       tests remain compatible.
+
+  cors-fix-rate-limiting:
+    description: Exempt OPTIONS preflight requests from rate limiting
+    status: complete
+    started_at: "2026-05-06T00:10:00Z"
+    completed_at: "2026-05-06T00:15:00Z"
+    output: backend/utils/rate_limiting.py
+    notes: >
+      Added @limiter.request_filter that returns True for OPTIONS requests.
+      Prevents Flask-Limiter's before_request check from returning a 429 without
+      CORS headers before Flask-CORS's after_request hook runs.
+
+  cors-verification:
+    description: >
+      End-to-end verification that deployed fixes (13a93b9, 93c65ba) are sufficient
+      and no additional CORS issues remain in backend or frontend.
+    status: complete
+    started_at: "2026-05-06T12:00:00Z"
+    completed_at: "2026-05-06T12:30:00Z"
+    output: null
+    notes: >
+      Verified: backend CORS config is complete and correct. Frontend client.ts has no
+      CORS issues. All 79 applicable backend tests pass. All 26 frontend tests pass.
+      One observation logged (not a bug): supports_credentials=True is unnecessary for
+      a JWT-only API; see activity log for details.
 
 blockers: []

@@ -49,6 +49,8 @@ feature_agents:
         enabled: true
       performance:
         enabled: true
+      change-impact:
+        enabled: true
       design-accuracy:
         enabled: true
         dimensions: [architectural]
@@ -66,6 +68,8 @@ feature_agents:
         enabled: true
       performance:
         enabled: true
+      change-impact:
+        enabled: true
       design-accuracy:
         enabled: true
         dimensions: [architectural]   # no Figma refs — architectural only
@@ -80,6 +84,8 @@ feature_agents:
       security:
         enabled: true
       performance:
+        enabled: true
+      change-impact:
         enabled: true
       evaluation:
         enabled: true

@@ -37,7 +37,7 @@ If the question clearly spans two agents, delegate to both and synthesize their 
    - The human's question verbatim
    - Any directly relevant artifacts already loaded in the session (spec file paths, a code snippet, the issue being discussed) — reference by path rather than embedding full content unless the agent must read it to answer
 
-4. **Invoke the agent.** Use the `Agent` tool with the assembled persona as the system prompt and the context payload as the user message.
+4. **Invoke the agent.** Use the `Agent` tool with the assembled persona as the system prompt, the context payload as the user message, and `run_in_background: true` so the user can observe the agent's work.
 
 5. **Return the response.** Present the agent's answer attributed by role:
    > **Architect:** [response]

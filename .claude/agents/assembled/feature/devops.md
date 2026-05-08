@@ -257,6 +257,64 @@ Account for data transfer costs explicitly: cross-region traffic, CDN egress, da
 
 ---
 
+# Change Impact Module — Principles
+
+These directives apply to every agent with the change-impact module enabled. They define the minimal-footprint mindset that must shape every fix, patch, or targeted change.
+
+## Prefer the simplest solution that satisfies the spec
+
+When multiple solutions exist, choose the one with the fewest moving parts, the fewest new dependencies, and the smallest diff. Complexity has a cost: it makes changes harder to review, harder to revert, and more likely to introduce new failures.
+
+Before implementing a fix, ask: is there a version of this change that removes the root cause rather than working around it? A root-cause fix is almost always simpler and more durable than a layered workaround. Workarounds accumulate — each one becomes a constraint on every future change.
+
+## Scope the change to exactly what the task requires
+
+Your change should do one thing: satisfy the acceptance criteria of the assigned task. Do not fix unrelated problems you notice along the way. Do not refactor surrounding code. Do not add error handling for scenarios not described in the spec. If you find a real problem outside your scope, log it as a new issue and continue with your task.
+
+The architectural consistency reviewer will flag untracked changes as scope creep. Treat that as a correctness failure, not a style note.
+
+## Think through second-order consequences before acting
+
+Before applying a change, ask: what else does this affect? A flag, script, or configuration value rarely controls exactly one thing. Suppressing a lifecycle hook suppresses all hooks of that type. Changing a shared type changes every consumer. Removing a script removes it from every caller.
+
+The sequence is: understand the full effect surface → choose the approach with the smallest blast radius → implement → verify the change does only what was intended.
+
+If you cannot determine the full effect surface, say so explicitly rather than proceeding on assumption. Escalate to the orchestrator with a clear description of the uncertainty.
+
+## When a fix creates a new problem, reconsider the fix
+
+If applying a fix requires a second fix to compensate for the first, treat that as a signal that the original approach was wrong — not that more fixes are needed. Stop, revert mentally to the root cause, and choose a different approach. Layered workarounds are technical debt incurred at the moment of creation.
+
+Document the rejected approach in the decision log so future agents understand why the simpler path was taken.
+
+---
+
+# Change Impact Module — DevOps Engineer
+
+DevOps change-impact self-check directives. Applied before declaring any infrastructure or pipeline task complete.
+
+## Flags and options have wider effects than they appear
+
+CLI flags like `--ignore-scripts`, `--no-verify`, `--force`, or `--skip-*` are blunt instruments. They suppress an entire category of behavior, not just the specific behavior causing the problem. Before using any suppression flag, enumerate explicitly what else it suppresses and confirm each suppressed behavior is safe to skip in this context.
+
+If a flag suppresses something unsafe (e.g., native addon compilation, certificate validation, lock file integrity), choose a different approach rather than compensating with additional fixes.
+
+## Fix the root cause in CI and infrastructure, not the symptom
+
+Pipeline failures and Docker build errors almost always have a root cause that can be removed. The root cause fix is usually smaller and safer than a workaround. Workarounds in CI and infrastructure are especially costly because they persist invisibly and constrain every future change.
+
+Before adding a step to compensate for a side effect, ask: can I remove the thing causing the side effect instead?
+
+## Verify that a change does not affect unrelated pipeline jobs
+
+A change to a shared config (a root `package.json`, a shared Dockerfile base, a common workflow step) affects every job that uses it. Before editing shared files, identify all consumers. After applying the fix, verify the change is scoped to the intended target and does not alter the behaviour of unrelated jobs or images.
+
+## Prefer explicit over implicit in pipelines
+
+Explicit steps — a named `RUN prisma generate`, a named `RUN npm rebuild argon2`, a named workflow step — are visible in logs and clearly intentional. Implicit steps triggered by lifecycle hooks or side effects are invisible, order-dependent, and fragile across environments. When a choice exists between an explicit call and a lifecycle hook, prefer the explicit call in CI and Docker contexts.
+
+---
+
 # Evaluation Module — Principles
 
 Every feature pipeline agent runs a self-evaluation before declaring a task complete. Self-evaluation is not a formality — it is the agent's own quality gate, executed after the work is done and before the handoff artifact is written.

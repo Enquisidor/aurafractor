@@ -331,6 +331,66 @@ Do not import entire namespaces when one function is needed. Named imports from 
 
 ---
 
+# Change Impact Module — Principles
+
+These directives apply to every agent with the change-impact module enabled. They define the minimal-footprint mindset that must shape every fix, patch, or targeted change.
+
+## Prefer the simplest solution that satisfies the spec
+
+When multiple solutions exist, choose the one with the fewest moving parts, the fewest new dependencies, and the smallest diff. Complexity has a cost: it makes changes harder to review, harder to revert, and more likely to introduce new failures.
+
+Before implementing a fix, ask: is there a version of this change that removes the root cause rather than working around it? A root-cause fix is almost always simpler and more durable than a layered workaround. Workarounds accumulate — each one becomes a constraint on every future change.
+
+## Scope the change to exactly what the task requires
+
+Your change should do one thing: satisfy the acceptance criteria of the assigned task. Do not fix unrelated problems you notice along the way. Do not refactor surrounding code. Do not add error handling for scenarios not described in the spec. If you find a real problem outside your scope, log it as a new issue and continue with your task.
+
+The architectural consistency reviewer will flag untracked changes as scope creep. Treat that as a correctness failure, not a style note.
+
+## Think through second-order consequences before acting
+
+Before applying a change, ask: what else does this affect? A flag, script, or configuration value rarely controls exactly one thing. Suppressing a lifecycle hook suppresses all hooks of that type. Changing a shared type changes every consumer. Removing a script removes it from every caller.
+
+The sequence is: understand the full effect surface → choose the approach with the smallest blast radius → implement → verify the change does only what was intended.
+
+If you cannot determine the full effect surface, say so explicitly rather than proceeding on assumption. Escalate to the orchestrator with a clear description of the uncertainty.
+
+## When a fix creates a new problem, reconsider the fix
+
+If applying a fix requires a second fix to compensate for the first, treat that as a signal that the original approach was wrong — not that more fixes are needed. Stop, revert mentally to the root cause, and choose a different approach. Layered workarounds are technical debt incurred at the moment of creation.
+
+Document the rejected approach in the decision log so future agents understand why the simpler path was taken.
+
+---
+
+# Change Impact Module — Frontend Engineer
+
+Frontend change-impact self-check directives. Applied before declaring any implementation or fix task complete.
+
+## Scope your change to the assigned issue
+
+Your change must address exactly what the assigned issue describes. Do not improve unrelated components because they are in the same file. Do not add props to a component because they might be useful in future. Do not introduce a new abstraction because you see a pattern emerging. Speculative changes make diffs harder to review and can break tests written against the current behaviour.
+
+If you notice a real problem outside your scope, log it as a new issue entry in `.logs/issues.md` and continue with your task.
+
+## Consider downstream consumers before changing a component's interface
+
+Before changing a component's props — adding a required prop, removing a prop, changing a prop's type — identify every call site. A required prop without a default will cause a TypeScript error at every existing usage. A renamed prop silently passes `undefined` at every site that uses the old name if the type is compatible.
+
+For shared components (`components/`), design changes are high-blast-radius by definition. State every affected call site in the decision log before proceeding.
+
+## Client/server boundary changes propagate in both directions
+
+Adding `'use client'` to a Server Component makes all of its children Client Components too — even if they do not need to be. Removing `'use client'` from a component that uses hooks or event handlers breaks it silently. Before changing the boundary, verify the full subtree.
+
+State management introduced in a Client Component is not visible to Server Components. A fix that moves data fetching from a Server Component to a Client Component to avoid a hook constraint may require rethreading data through the component tree. Identify the full propagation path before choosing the approach.
+
+## i18n strings must stay in sync
+
+Every user-facing string must go through `t('key')`. Adding a hardcoded string to fix a display issue bypasses the i18n system and will not be translatable. If a key is missing from the messages file, add it — do not hardcode the fallback as the permanent solution.
+
+---
+
 <!-- project configuration: design-accuracy active dimensions: architectural -->
 **Design accuracy — active dimensions for this project:** architectural. Apply only the checklist sections that correspond to these dimensions.
 

@@ -273,6 +273,64 @@ Jobs must have a dead-letter mechanism: records that fail after a configurable m
 
 ---
 
+# Change Impact Module — Principles
+
+These directives apply to every agent with the change-impact module enabled. They define the minimal-footprint mindset that must shape every fix, patch, or targeted change.
+
+## Prefer the simplest solution that satisfies the spec
+
+When multiple solutions exist, choose the one with the fewest moving parts, the fewest new dependencies, and the smallest diff. Complexity has a cost: it makes changes harder to review, harder to revert, and more likely to introduce new failures.
+
+Before implementing a fix, ask: is there a version of this change that removes the root cause rather than working around it? A root-cause fix is almost always simpler and more durable than a layered workaround. Workarounds accumulate — each one becomes a constraint on every future change.
+
+## Scope the change to exactly what the task requires
+
+Your change should do one thing: satisfy the acceptance criteria of the assigned task. Do not fix unrelated problems you notice along the way. Do not refactor surrounding code. Do not add error handling for scenarios not described in the spec. If you find a real problem outside your scope, log it as a new issue and continue with your task.
+
+The architectural consistency reviewer will flag untracked changes as scope creep. Treat that as a correctness failure, not a style note.
+
+## Think through second-order consequences before acting
+
+Before applying a change, ask: what else does this affect? A flag, script, or configuration value rarely controls exactly one thing. Suppressing a lifecycle hook suppresses all hooks of that type. Changing a shared type changes every consumer. Removing a script removes it from every caller.
+
+The sequence is: understand the full effect surface → choose the approach with the smallest blast radius → implement → verify the change does only what was intended.
+
+If you cannot determine the full effect surface, say so explicitly rather than proceeding on assumption. Escalate to the orchestrator with a clear description of the uncertainty.
+
+## When a fix creates a new problem, reconsider the fix
+
+If applying a fix requires a second fix to compensate for the first, treat that as a signal that the original approach was wrong — not that more fixes are needed. Stop, revert mentally to the root cause, and choose a different approach. Layered workarounds are technical debt incurred at the moment of creation.
+
+Document the rejected approach in the decision log so future agents understand why the simpler path was taken.
+
+---
+
+# Change Impact Module — Backend Engineer
+
+Backend change-impact self-check directives. Applied before declaring any implementation or fix task complete.
+
+## Scope your change to the assigned issue
+
+Your change must address exactly what the assigned issue describes — no more, no less. Do not refactor surrounding code because you noticed it could be cleaner. Do not add fields to a DTO because they might be useful later. Do not extend a service method beyond what the failing test requires. Every line changed that is not required by the acceptance criteria is untracked scope creep.
+
+If you notice a real problem outside your scope, log it as a new issue entry in `.logs/issues.md` and continue with your task. The orchestrator decides when it gets addressed.
+
+## Consider who calls what you change
+
+Before modifying a service method, a DTO, a Prisma model accessor, or a shared utility, identify every call site. A change that alters the method signature, the return type, or the error contract of a shared function affects every consumer silently — TypeScript may catch type mismatches, but behaviour changes may not surface until runtime.
+
+For Prisma schema changes: a new required field without a default breaks every existing `create` call that does not supply it. A removed field breaks every reader. State the full impact surface in the decision log before proceeding.
+
+## Prefer additive changes over mutations
+
+When extending existing behaviour, prefer adding a new method or optional field over modifying an existing one. Mutations to existing interfaces require auditing every consumer. Additive changes have zero impact on existing callers. When a mutation is unavoidable, state why in the decision log.
+
+## Migrations are permanent
+
+Database migrations cannot be rolled back without data loss once applied to a production database. Before writing a migration, confirm it matches the schema change exactly — column names, types, nullability, defaults, and indexes. A migration that adds a `NOT NULL` column without a default will fail against a populated table. Validate the migration against the test database before marking the task complete.
+
+---
+
 <!-- project configuration: design-accuracy active dimensions: architectural -->
 **Design accuracy — active dimensions for this project:** architectural. Apply only the checklist sections that correspond to these dimensions.
 
