@@ -72,3 +72,37 @@ OBS-002: The staging environment (FLASK_ENV=staging) uses the same CORS origin l
 
 **Decisions:**
 - None. Investigation only; no changes were made.
+
+---
+## cors-port-fix | 2026-05-06
+
+**Agent:** IaC/DevOps Engineer
+**Task ID:** cors-port-fix
+**Status:** Completed
+
+**Task description:** Investigate why CORS errors persist in production despite correct Flask-CORS configuration. Audit Firebase Hosting config, Cloud Run Terraform config, CI/CD deploy workflow, and any upstream infrastructure.
+
+**Inputs received:**
+- `.github/workflows/backend-deploy.yml`
+- `terraform/cloud_run.tf`, `terraform/main.tf`, `terraform/variables.tf`, `terraform/gcs.tf`, `terraform/cloud_tasks.tf`
+- `ui/firebase.json`, `ui/.firebaserc`
+- `backend/Dockerfile`, `backend/app.py`, `backend/utils/rate_limiting.py`
+- `.github/workflows/firebase-hosting-merge.yml`, `web-deploy.yml`, `firebase-hosting-pull-request.yml`
+
+**Outputs produced:**
+- `terraform/cloud_run.tf` — changed `container_port` from `5000` to `8080`; added explanatory comment
+- `backend/Dockerfile` — changed gunicorn CMD from exec-form with hardcoded `8080` to shell-form using `${PORT}` env var
+
+**Self-checks applied:**
+- Security Module (IaC/DevOps): applied. No new secrets introduced. IAM is least-privilege. No public exposure of database ports. Existing ISS-001 (SA key auth) remains open; no new P2+ security findings from this session.
+- Performance Module (IaC/DevOps): applied. No resource sizing changes. Port fix has no cost or performance implications.
+
+**Decisions made:**
+- DEC-003: Change `container_port` to 8080 and update CMD to use `$PORT` variable. See decisions.md.
+
+**Assumptions made:**
+- The currently deployed Cloud Run revision is serving 502 errors on all requests because it was deployed with `container_port=5000` in the Terraform config. After `terraform apply` (which triggers a new revision) and a new image build/deploy, port 8080 will be correctly declared and listened on.
+- No load balancer, API Gateway, or Cloud Armor policy sits in front of Cloud Run for this service. Confirmed from Terraform — no such resources are defined.
+
+**Issues flagged:**
+- ISS-003: container_port/gunicorn port mismatch — root cause of persistent CORS errors (P1). Fixed in this session.

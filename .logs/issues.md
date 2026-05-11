@@ -1,0 +1,89 @@
+# Issue Log
+
+---
+**Issue ID:** ISS-001
+**Timestamp:** 2026-05-06T13:30:00Z
+**Reported by:** IaC/DevOps Engineer (security self-check)
+**Task/Session ID:** cors-infra-investigation
+**Status:** Open
+**Status History:**
+
+**Severity:** P2
+**Category:** Security
+**Title:** Backend deploy workflow authenticates to GCP using a service account key file rather than Workload Identity Federation.
+
+**Description:**
+`.github/workflows/backend-deploy.yml` uses `credentials_json: ${{ secrets.GCP_SA_KEY }}` to authenticate the `google-github-actions/auth@v2` step. This is a long-lived service account key stored as a GitHub Actions secret. Long-lived keys are a persistent secret that can be leaked, are not automatically rotated, and cannot be tied to a specific workflow run. GitHub Actions and GCP both recommend Workload Identity Federation (WIF) for keyless authentication — WIF issues short-lived, run-scoped credentials with no persistent secret to manage.
+
+**Location:** `.github/workflows/backend-deploy.yml` — step "Authenticate", `credentials_json` field
+
+**Spec reference:** DevOps Security Module — "Provider authentication in CI must use Workload Identity Federation, not downloaded service account key files."
+
+**Suggested fix:**
+1. Create a Workload Identity Pool and Provider in GCP for the GitHub Actions OIDC issuer (`token.actions.githubusercontent.com`).
+2. Bind the pool to the deploy service account with a condition restricting to the `aurafractor` repository and `main` branch.
+3. Replace `credentials_json` with `workload_identity_provider` and `service_account` fields in the `google-github-actions/auth@v2` step.
+4. Remove the `GCP_SA_KEY` secret from GitHub Actions.
+
+WIF can be provisioned in Terraform using `google_iam_workload_identity_pool` and `google_iam_workload_identity_pool_provider` resources. This fix is out of scope for the current CORS investigation but should be addressed in a dedicated security hardening task.
+
+**Auto-fix attempted:** No
+
+---
+**Issue ID:** ISS-002
+**Timestamp:** 2026-05-06T13:30:00Z
+**Reported by:** IaC/DevOps Engineer (investigation finding)
+**Task/Session ID:** cors-infra-investigation
+**Status:** Open
+**Status History:**
+
+**Severity:** P1
+**Category:** CI/CD
+**Title:** `api.aurafractor.com` custom domain mapping was not managed in Terraform, making domain routing configuration invisible and unverifiable from the codebase.
+
+**Description:**
+No Terraform resource existed for the `api.aurafractor.com` Cloud Run domain mapping. The domain mapping was configured manually in GCP. This means there is no way to verify from the IaC whether the mapping is active, whether it is pointing to the correct Cloud Run service and revision, and whether it was configured correctly to serve traffic without HTTP-to-HTTPS redirects or verification pages. An unverified or misconfigured domain mapping returns responses from Google's infrastructure (redirect pages, verification pages) rather than the Flask app — the browser reports these as CORS failures because the redirect/verification responses do not include CORS headers.
+
+A `google_cloud_run_domain_mapping` resource has been added to `terraform/cloud_run.tf` to bring this under IaC management. The first `terraform plan` after this change must be reviewed before applying.
+
+**Location:** `terraform/cloud_run.tf` — new `google_cloud_run_domain_mapping.api` resource
+
+**Spec reference:** DevOps behavioral rules — "All environments (dev, staging, production) are covered by the IaC. No environment is manually configured or undeclared."
+
+**Suggested fix:**
+1. Run `terraform plan -out=tfplan` and review the output. If the plan shows the domain mapping being created (rather than adopted), verify that no existing manual mapping will conflict.
+2. Run `terraform apply tfplan`.
+3. After apply, run `gcloud beta run domain-mappings describe --domain=api.aurafractor.com --region=<region> --project=<project>` and confirm the mapping status is `READY`.
+4. If DNS records are not yet configured, add the A/AAAA records returned by the describe command to the DNS provider.
+
+**Auto-fix attempted:** Yes — Terraform resource added to `terraform/cloud_run.tf`. Plan and apply not executed (requires human review per plan-before-apply policy).
+**Auto-fix outcome:** Partial — IaC resource added; apply and DNS verification are manual steps.
+
+---
+**Issue ID:** ISS-003
+**Timestamp:** 2026-05-06T14:00:00Z
+**Reported by:** IaC/DevOps Engineer (CORS root-cause investigation)
+**Task/Session ID:** cors-port-fix
+**Status:** Fixed — pending deploy
+
+**Severity:** P1
+**Category:** Infrastructure misconfiguration
+**Title:** Cloud Run `container_port` declared as 5000 but gunicorn binds to port 8080, causing all requests to return 502 with no CORS headers.
+
+**Description:**
+`terraform/cloud_run.tf` declared `container_port = 5000`. The production Dockerfile (`backend/Dockerfile`) sets `ENV PORT=8080` and the gunicorn CMD hardcodes `--bind 0.0.0.0:8080`. Cloud Run's ingress uses `container_port` to determine which port to forward incoming requests to. With `container_port = 5000` and no process listening on port 5000, Cloud Run returns 502 Bad Gateway responses from its own load balancer infrastructure. These 502 responses carry no application headers — in particular, no `Access-Control-Allow-Origin` or `Access-Control-Allow-Headers`. The browser receives a cross-origin response with no CORS headers and reports a CORS error.
+
+This explains why the Flask CORS configuration (which is correctly written) produced no observable effect: no request was actually reaching the Flask process.
+
+**Location:**
+- `terraform/cloud_run.tf` line 59: `container_port = 5000` (changed to `8080`)
+- `backend/Dockerfile` CMD: `gunicorn --bind 0.0.0.0:8080 ...` (changed to `gunicorn --bind "0.0.0.0:${PORT}" ...`)
+
+**Spec reference:** N/A — this is a deployment configuration defect.
+
+**Suggested fix (applied):**
+1. `terraform/cloud_run.tf`: changed `container_port` from `5000` to `8080`.
+2. `backend/Dockerfile`: changed gunicorn CMD from exec-form with hardcoded `8080` to shell-form reading `$PORT`, so the binding matches the Cloud Run injected value and the Terraform declaration stay in sync.
+
+**Auto-fix attempted:** Yes
+**Auto-fix outcome:** Files changed. Requires: (a) `terraform apply` to update the Cloud Run service definition, which triggers a new revision with `container_port=8080`; (b) a new backend Docker image build and Cloud Run deploy so the container CMD also uses `$PORT`. The terraform apply alone may be sufficient if the currently deployed image already guesses 8080 — but the image should be rebuilt to remove the ambiguity.

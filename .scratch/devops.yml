@@ -1,0 +1,36 @@
+agent: devops
+session_id: cors-fix-001
+last_updated: "2026-05-06T14:00:00Z"
+status: complete
+
+current_task: cors-port-fix — completed
+
+tasks:
+  cors-port-fix:
+    description: >
+      Investigate why CORS errors persist in production despite correct Flask-CORS config.
+      Audit Firebase Hosting, Cloud Run Terraform, CI/CD deploy workflow, and upstream infra.
+    status: complete
+    started_at: "2026-05-06T14:00:00Z"
+    completed_at: "2026-05-06T14:00:00Z"
+    output: |
+      terraform/cloud_run.tf
+      backend/Dockerfile
+      .handoffs/devops-completion-ISS-003.md
+    notes: >
+      Root cause found: container_port=5000 in Terraform vs gunicorn binding to 8080.
+      Cloud Run forwards requests to the declared container_port; with nothing listening
+      on 5000 every request returned 502 from Cloud Run infrastructure with no CORS headers.
+      Fixed by changing container_port to 8080 in Terraform and updating Dockerfile CMD
+      to use ${PORT} env var.
+
+      Firebase Hosting (ui/firebase.json): clean — no CORS headers block, no API proxy rewrites.
+      Cloud Run IAM: clean — allUsers invoker role is set, OPTIONS preflights are unauthenticated.
+      No load balancer or API Gateway in Terraform — no upstream infrastructure to intercept.
+      Deploy workflow: no --no-traffic flag; deploys to 100% traffic by default. Clean.
+
+      Required actions before CORS is resolved in production:
+      1. terraform apply (triggers new Cloud Run revision with container_port=8080)
+      2. New backend Docker image build + Cloud Run deploy (so container CMD uses $PORT)
+
+blockers: []

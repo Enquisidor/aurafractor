@@ -55,8 +55,15 @@ resource "google_cloud_run_v2_service" "api" {
         cpu_idle = true  # Only charge for CPU when handling requests
       }
 
+      # Port must match the port gunicorn binds to in the Dockerfile CMD.
+      # The Dockerfile sets ENV PORT=8080 and gunicorn binds to 0.0.0.0:8080.
+      # Cloud Run also injects PORT=8080 by default.
+      # Declaring 5000 here while the process listens on 8080 causes Cloud Run's
+      # ingress to forward requests to a port with no listener, producing 502
+      # responses that carry no CORS headers — the browser reports this as a
+      # CORS error even though the Flask CORS configuration is correct.
       ports {
-        container_port = 5000
+        container_port = 8080
       }
 
       volume_mounts {
@@ -88,6 +95,14 @@ resource "google_cloud_run_v2_service" "api" {
       env {
         name  = "CLOUD_TASKS_QUEUE"
         value = google_cloud_tasks_queue.extraction.name
+      }
+
+      # Explicitly set allowed CORS origins so the value is auditable in IaC
+      # and does not rely on the hardcoded default in backend/app.py.
+      # The Flask app reads ALLOWED_ORIGINS as a comma-separated list.
+      env {
+        name  = "ALLOWED_ORIGINS"
+        value = var.allowed_origins
       }
 
       # Secrets from Secret Manager
@@ -135,11 +150,53 @@ resource "google_cloud_run_v2_service_iam_member" "public" {
   member   = "allUsers"
 }
 
+# ── Custom Domain Mapping ──────────────────────────────────────────────────────
+#
+# Maps api.aurafractor.com to this Cloud Run service.
+#
+# IMPORTANT — DNS verification required after first apply:
+#   After `terraform apply`, run:
+#     gcloud beta run domain-mappings describe \
+#       --domain=api.aurafractor.com \
+#       --region=<region> \
+#       --project=<project>
+#   and add the returned A/AAAA or CNAME records to your DNS provider.
+#   Until DNS propagates, the domain will return a Google verification page,
+#   not the Flask app — this will appear as a CORS error to the browser.
+#
+# Cloud Run domain mappings only support regions where the feature is available.
+# If your region does not support domain mappings, use a Cloud Load Balancer
+# with a serverless NEG backend instead (flag this for tech lead review).
+#
+# This resource is only created when var.api_custom_domain is non-empty.
+# Set it to "" in tfvars to skip domain mapping for environments without a
+# custom domain.
+
+resource "google_cloud_run_domain_mapping" "api" {
+  count    = var.api_custom_domain != "" ? 1 : 0
+  name     = var.api_custom_domain
+  location = var.region
+
+  metadata {
+    namespace = var.project_id
+    labels    = local.labels
+  }
+
+  spec {
+    route_name = google_cloud_run_v2_service.api.name
+  }
+}
+
 # ── Outputs ────────────────────────────────────────────────────────────────────
 
 output "api_url" {
-  description = "Public URL of the deployed API"
+  description = "Public URL of the deployed API (Cloud Run generated URL)"
   value       = google_cloud_run_v2_service.api.uri
+}
+
+output "api_custom_domain_url" {
+  description = "Custom domain URL for the API (if configured)"
+  value       = var.api_custom_domain != "" ? "https://${var.api_custom_domain}" : "not configured"
 }
 
 output "audio_bucket" {
