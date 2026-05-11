@@ -1,9 +1,9 @@
 agent: orchestrator
 session_id: cors-fix-001
-last_updated: "2026-05-06T12:30:00Z"
-status: complete
+last_updated: "2026-05-06T13:00:00Z"
+status: active
 
-current_task: CORS end-to-end verification complete — no additional fixes required
+current_task: Delegating GCP/infrastructure CORS investigation to DevOps agent
 
 tasks:
   cors-investigation:
@@ -26,10 +26,9 @@ tasks:
       backend/app.py
       backend/utils/decorators.py
     notes: >
-      CORS: added explicit allow_headers, methods, OPTIONS to CORS() call.
+      CORS: added explicit allow_headers/methods/OPTIONS to CORS() call.
       Auth: mock-mode require_auth now decodes JWT from Authorization header instead
-      of requiring X-User-ID. Test suite auth_headers fixture sends a real JWT so
-      tests remain compatible.
+      of requiring X-User-ID.
 
   cors-fix-rate-limiting:
     description: Exempt OPTIONS preflight requests from rate limiting
@@ -39,21 +38,31 @@ tasks:
     output: backend/utils/rate_limiting.py
     notes: >
       Added @limiter.request_filter that returns True for OPTIONS requests.
-      Prevents Flask-Limiter's before_request check from returning a 429 without
-      CORS headers before Flask-CORS's after_request hook runs.
 
   cors-verification:
     description: >
-      End-to-end verification that deployed fixes (13a93b9, 93c65ba) are sufficient
-      and no additional CORS issues remain in backend or frontend.
+      End-to-end verification that deployed fixes are sufficient and no additional
+      CORS issues remain in backend or frontend.
     status: complete
     started_at: "2026-05-06T12:00:00Z"
     completed_at: "2026-05-06T12:30:00Z"
     output: null
     notes: >
       Verified: backend CORS config is complete and correct. Frontend client.ts has no
-      CORS issues. All 79 applicable backend tests pass. All 26 frontend tests pass.
-      One observation logged (not a bug): supports_credentials=True is unnecessary for
-      a JWT-only API; see activity log for details.
+      CORS issues. All 79 backend tests pass. All 26 frontend tests pass.
+
+  cors-infra-investigation:
+    description: >
+      Investigate GCP/infrastructure layer for CORS issues — Firebase Hosting config,
+      Cloud Run service config, CI/CD deploy flags, DNS routing for api.aurafractor.com.
+      Backend code is correct; hypothesis is OPTIONS preflight is being blocked or
+      rewritten before reaching Flask.
+    status: in-progress
+    started_at: "2026-05-06T13:00:00Z"
+    completed_at: null
+    output: null
+    notes: >
+      Delegated to DevOps agent. Investigating: ui/firebase.json, terraform/ Cloud Run
+      definition, .github/workflows/backend-deploy.yml, and DNS/load balancer resources.
 
 blockers: []

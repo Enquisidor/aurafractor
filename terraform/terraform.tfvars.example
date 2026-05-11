@@ -8,3 +8,11 @@ image              = "gcr.io/your-gcp-project-id/aurafractor-api:latest"
 db_connection_name = "your-gcp-project-id:us-central1:aurafractor-db"
 min_instances      = 0   # set to 1 for production to avoid cold starts
 max_instances      = 10
+
+# Custom domain for the API. Set to "" to skip domain mapping (e.g. for staging
+# environments without a dedicated domain).
+api_custom_domain  = "api.aurafractor.com"
+
+# Comma-separated allowed CORS origins. Must include all Firebase Hosting domains
+# that serve the frontend. Do not add a trailing slash.
+allowed_origins    = "https://aurafractor.web.app,https://aurafractor.firebaseapp.com"

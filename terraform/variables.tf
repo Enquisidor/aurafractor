@@ -58,3 +58,15 @@ variable "max_instances" {
   type        = number
   default     = 10
 }
+
+variable "api_custom_domain" {
+  description = "Custom domain for the API service (e.g. api.aurafractor.com). Set to empty string to skip domain mapping."
+  type        = string
+  default     = ""
+}
+
+variable "allowed_origins" {
+  description = "Comma-separated list of allowed CORS origins for the API. Passed to Flask as ALLOWED_ORIGINS."
+  type        = string
+  default     = "https://aurafractor.web.app,https://aurafractor.firebaseapp.com"
+}
