@@ -11,7 +11,7 @@ const DEV_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
 
 export const BASE_URL = __DEV__
   ? `http://${DEV_HOST}:5001`
-  : 'https://api.aurafractor.com';
+  : 'https://aurafractor-api-dexvvayh2a-ue.a.run.app';
 
 // ---------------------------------------------------------------------------
 // Types
