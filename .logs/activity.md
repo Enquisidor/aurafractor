@@ -183,3 +183,99 @@ OBS-002: The staging environment (FLASK_ENV=staging) uses the same CORS origin l
 
 **Issues flagged:**
 - None.
+
+---
+## ux-first-launch-account-creation | 2026-05-14
+
+**Agent:** Frontend Engineer
+**Task ID:** ux-first-launch-account-creation
+**Status:** Completed
+
+**Task description:** Update `FirstLaunchModal` to present an active account-creation confirmation when `isNewUser` is true, with distinct heading, body copy, and CTA.
+
+**Inputs received:**
+- `ui/src/components/FirstLaunchModal.tsx`
+- `ui/app/_layout.tsx`
+- `ui/src/hooks/useAuth.ts`
+
+**Outputs produced:**
+- `ui/src/components/FirstLaunchModal.tsx` — added conditional JSX branches: `isNewUser=true` branch shows "Account created" heading, device-tied explanation, and "Start using Aurafractor" CTA; `isNewUser=false` branch preserves original copy.
+
+**Self-checks applied:**
+- Security: no user-controlled content inserted into DOM via unsafe mechanisms; no token logging; no new dependencies. Passed.
+- Accessibility: both branches retain `accessibilityViewIsModal`, `onRequestClose`, and `accessibilityRole="button"` on CTA; `accessibilityLabel` updated to match CTA text per branch; `AccessibilityInfo.announceForAccessibility` announcement updated to match `isNewUser` branch. Passed.
+- Performance: no new renders, no list components, no additional network requests. Passed.
+- Design accuracy (architectural fidelity): component name `FirstLaunchModal` unchanged; prop name `isNewUser` matches API contract field `is_new_user` convention; no domain-term violations. Passed.
+
+**Decisions made:**
+- DEC-009: Two conditional JSX branches within one component rather than two separate components. See decisions.md.
+
+**Assumptions made:**
+- The `isNewUser` prop behaviour (skip storage read, force visible) introduced in DEC-007 is retained unchanged.
+
+**Issues flagged:**
+- None.
+
+---
+## ux-settings-device-id | 2026-05-14
+
+**Agent:** Frontend Engineer
+**Task ID:** ux-settings-device-id
+**Status:** Completed
+
+**Task description:** Add a Device section to the Settings screen showing the user's Device ID and a plain-language explanation of how the app recognises them automatically.
+
+**Inputs received:**
+- `ui/app/(tabs)/settings.tsx`
+- `ui/src/hooks/useAuth.ts`
+- `ui/src/storage/platform.ts` (convention reference)
+
+**Outputs produced:**
+- `ui/app/(tabs)/settings.tsx` — added `useEffect` to read device ID from platform storage; added "Device" section card with Device ID row and explanatory text paragraph.
+
+**Self-checks applied:**
+- Security: device ID is not a secret — it is a locally generated opaque identifier used only for registration; displaying it in settings is not a credential exposure. No tokens or session data surfaced. Passed.
+- Accessibility: Device ID row uses `accessibilityLabel` to provide full spoken text ("Device ID: <value>") so the mono font value reads correctly; explanation text has sufficient contrast via `C.textSecondary` token. Passed.
+- Performance: single `storage.getItem` call in a `useEffect` on mount; result is a stable string with no polling. No render performance concern. Passed.
+- Design accuracy (architectural fidelity): section title "Device" is not a domain-model term requiring glossary lookup; explanation copy uses glossary term "device ID" (lowercase) correctly. Passed.
+
+**Decisions made:**
+- DEC-010: Read device ID from storage directly in Settings rather than exposing it through `useAuth`. See decisions.md.
+
+**Assumptions made:**
+- The device ID stored under `'device_id'` is set before the Settings screen is mounted (it is written during the `getOrCreateDeviceId` call in `useAuth` on first launch). If somehow absent, the Device ID row is not rendered (`deviceId != null` guard).
+
+**Issues flagged:**
+- None.
+
+---
+## ux-extraction-back-navigation | 2026-05-14
+
+**Agent:** Frontend Engineer
+**Task ID:** ux-extraction-back-navigation
+**Status:** Completed
+
+**Task description:** Add an explicit back button to `extraction/[id].tsx` that works cross-platform — `router.back()` when history exists, `router.replace('/(tabs)/history')` when it does not.
+
+**Inputs received:**
+- `ui/app/extraction/[id].tsx`
+- `ui/app/_layout.tsx`
+
+**Outputs produced:**
+- `ui/app/extraction/[id].tsx` — added `handleBack` callback using `router.canGoBack()` guard; added unconditional `topBar` with `Pressable` back button above the extraction header row; added corresponding `StyleSheet` entries.
+
+**Self-checks applied:**
+- Security: no user input, no URL construction from user data, no token handling. Passed.
+- Accessibility: back button has `accessibilityRole="button"` and `accessibilityLabel="Go back"`; `hitSlop` increases tap target to meet minimum touch target size. Passed.
+- Performance: `handleBack` is wrapped in `useCallback` with empty dep array (no closure over changing values); no new renders or data fetches introduced. Passed.
+- Design accuracy (architectural fidelity): no domain-term violations; `router.replace` target `/(tabs)/history` matches the existing tab route. Passed.
+
+**Decisions made:**
+- DEC-011: Explicit in-content back button rather than header option injection; `/(tabs)/history` as fallback destination. See decisions.md.
+
+**Assumptions made:**
+- `/(tabs)/history` is a valid, existing route in the app. Confirmed from `_layout.tsx` — `(tabs)` is a registered Stack.Screen; the history tab is the canonical entry point for past extractions.
+- The existing `headerShown: true` for `extraction/[id]` in `_layout.tsx` remains unchanged. On native, the Stack header back arrow and the in-content button will coexist.
+
+**Issues flagged:**
+- None.

@@ -7,9 +7,13 @@
  * the seen flag is persisted via platform storage.
  *
  * When `isNewUser` is true (set from the auth API's `is_new_user` response
- * field), the modal is shown regardless of the storage flag. This ensures
- * the confirmation appears after a successful first-time registration even
- * before the storage read completes.
+ * field), the modal presents the moment as an active account-creation
+ * confirmation: the heading is "Account created", and copy explains that
+ * the account is tied to this device. The CTA reads "Start using Aurafractor".
+ *
+ * When `isNewUser` is false but `first_launch_seen` has not been set (e.g.
+ * a returning user who cleared storage), the modal shows a neutral welcome
+ * tone with the original copy and "Get started" CTA.
  *
  * Design gap (logged as DEC-006): no visual design reference was provided
  * for this screen. The layout uses the project's existing design tokens
@@ -34,8 +38,8 @@ const SEEN_KEY = 'first_launch_seen';
 interface FirstLaunchModalProps {
   /**
    * When true (sourced from the auth API's `is_new_user` field), the modal
-   * is shown regardless of the storage flag. This surfaces the registration
-   * confirmation immediately after a successful first-time device registration.
+   * is shown regardless of the storage flag and presents an active
+   * account-creation confirmation rather than a passive welcome.
    * Defaults to false.
    */
   isNewUser?: boolean;
@@ -61,7 +65,10 @@ export function FirstLaunchModal({ isNewUser = false }: FirstLaunchModalProps) {
   const handleStart = async () => {
     await storage.setItem(SEEN_KEY, '1');
     setVisible(false);
-    AccessibilityInfo.announceForAccessibility('Welcome to Aurafractor. Let\'s get started.');
+    const announcement = isNewUser
+      ? 'Account created. Welcome to Aurafractor.'
+      : 'Welcome to Aurafractor. Let\'s get started.';
+    AccessibilityInfo.announceForAccessibility(announcement);
   };
 
   if (!visible) return null;
@@ -77,28 +84,57 @@ export function FirstLaunchModal({ isNewUser = false }: FirstLaunchModalProps) {
     >
       <View style={styles.backdrop}>
         <View style={[styles.card, { backgroundColor: C.surface, borderColor: C.border }]}>
-          <Text style={[styles.title, { color: C.textPrimary }]}>
-            Welcome to Aurafractor
-          </Text>
-          <Text style={[styles.body, { color: C.textSecondary }]}>
-            Describe the sound you want — vocals, kick, synth lead — and we'll
-            isolate it from any track using AI.
-          </Text>
-          <Text style={[styles.body, { color: C.textSecondary }]}>
-            No account needed. Your device is registered automatically so you can
-            start right away.
-          </Text>
-          <Pressable
-            onPress={handleStart}
-            style={({ pressed }) => [
-              styles.cta,
-              { backgroundColor: pressed ? C.primaryLight : C.primary },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Get started with Aurafractor"
-          >
-            <Text style={styles.ctaLabel}>Get started</Text>
-          </Pressable>
+          {isNewUser ? (
+            <>
+              <Text style={[styles.title, { color: C.textPrimary }]}>
+                Account created
+              </Text>
+              <Text style={[styles.body, { color: C.textSecondary }]}>
+                Your Aurafractor account is tied to this device. The app
+                recognises you automatically — no password required.
+              </Text>
+              <Text style={[styles.body, { color: C.textSecondary }]}>
+                Describe any sound you want extracted — vocals, kick drum,
+                synth lead — and AI will isolate it from any track.
+              </Text>
+              <Pressable
+                onPress={handleStart}
+                style={({ pressed }) => [
+                  styles.cta,
+                  { backgroundColor: pressed ? C.primaryLight : C.primary },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Start using Aurafractor"
+              >
+                <Text style={styles.ctaLabel}>Start using Aurafractor</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={[styles.title, { color: C.textPrimary }]}>
+                Welcome to Aurafractor
+              </Text>
+              <Text style={[styles.body, { color: C.textSecondary }]}>
+                Describe the sound you want — vocals, kick, synth lead — and we'll
+                isolate it from any track using AI.
+              </Text>
+              <Text style={[styles.body, { color: C.textSecondary }]}>
+                No account needed. Your device is registered automatically so you can
+                start right away.
+              </Text>
+              <Pressable
+                onPress={handleStart}
+                style={({ pressed }) => [
+                  styles.cta,
+                  { backgroundColor: pressed ? C.primaryLight : C.primary },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Get started with Aurafractor"
+              >
+                <Text style={styles.ctaLabel}>Get started</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       </View>
     </Modal>

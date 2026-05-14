@@ -184,3 +184,72 @@ The task description stated that the error UI shows "only a dismissible 'Backend
 **Reversibility:** N/A — no changes were made.
 
 **PM/Tech Lead review required:** No.
+
+---
+**Decision ID:** DEC-009
+**Agent:** Frontend Engineer
+**Task ID:** ux-first-launch-account-creation
+**Timestamp:** 2026-05-14T00:00:00Z
+
+**Context:**
+The `FirstLaunchModal` previously showed identical copy ("You're all set!" / "Welcome to Aurafractor") regardless of whether the user was a brand-new registrant or a returning user who had cleared their storage. The PM raised that the `isNewUser` prop (already wired to the auth API's `is_new_user` field) should be used to differentiate the modal's tone: when a new account has just been created, the moment should feel like an active confirmation the user did something, not a passive welcome. A decision was needed on how to structure the two variants.
+
+**Options considered:**
+1. Render two separate JSX branches within the same component, each with distinct heading, body copy, CTA text, and accessibility announcement — no separate component files required; the `isNewUser` boolean is the only branch condition
+2. Extract two separate components (`AccountCreatedModal` and `WelcomeModal`) — cleaner isolation, but adds two new component files and an indirection layer for a feature that is a single controlled Boolean
+
+**Decision:** Option 1 — two conditional JSX branches within `FirstLaunchModal`. When `isNewUser` is true: heading is "Account created", body copy explains device-tied account and no password requirement, CTA reads "Start using Aurafractor". When `isNewUser` is false: original heading/copy/CTA unchanged ("Welcome to Aurafractor" / "Get started").
+
+**Rationale:** The two variants share identical structural markup (backdrop, card, title, body, CTA), identical animation, and identical dismiss logic — they differ only in text. Extracting two components would duplicate that structure for no functional benefit. A single boolean branch within one component is readable and matches the existing prop signature.
+
+**Trade-offs accepted:** Both variants share the same `StyleSheet` — if the designer specifies a visually distinct treatment for the "Account created" variant (e.g., a success icon or green accent), the shared styles would need to be split. This is a low-effort future change contained entirely within `FirstLaunchModal.tsx`.
+
+**Reversibility:** Easy — revering to the original copy requires removing the conditional branch.
+
+**PM/Tech Lead review required:** Yes — the new copy ("Account created", "Your Aurafractor account is tied to this device…", "Start using Aurafractor") is user-facing and should be reviewed by the PM before shipping.
+
+---
+**Decision ID:** DEC-010
+**Agent:** Frontend Engineer
+**Task ID:** ux-settings-device-id
+**Timestamp:** 2026-05-14T00:00:00Z
+
+**Context:**
+The Settings screen previously showed the backend User ID (from `auth.userId`) but did not explain how the app recognises returning users, which the PM flagged as confusing. The device ID (the stable local identifier stored under `'device_id'` in platform storage) is more meaningful as a user-facing identifier because it is what the app actually uses to recognise the device on each launch. The `useAuth` hook generates and stores this value but does not expose it in its return value. A decision was needed on how to surface it in the Settings screen.
+
+**Options considered:**
+1. Read the device ID directly from `storage.getItem('device_id')` in a `useEffect` inside the Settings screen — no changes to `useAuth` or any other shared module; the device ID is a single stable value that does not change after creation
+2. Add `deviceId` to `useAuth`'s return value — makes the device ID part of the auth context and available to any future screen that needs it; requires modifying a shared hook
+
+**Decision:** Option 1 — read from storage directly in Settings. The device ID is a static value after first creation; there is no reactivity requirement (it never changes during a session), so a one-shot `useEffect` with `storage.getItem` is sufficient. The `DEVICE_ID_KEY` constant is co-located with the existing constant in `useAuth.ts` — re-declaring it locally in `settings.tsx` is a minor duplication but avoids coupling the settings screen to the hook's internals.
+
+**Rationale:** Option 2 would expose a storage key implementation detail through a domain hook whose primary concern is auth state. The device ID is not an auth concern — it is a device identity concern. Reading it locally in the one screen that needs to display it is the lower-coupling choice. If a second screen ever needs the device ID, that is the right time to promote it to a shared abstraction.
+
+**Trade-offs accepted:** The `DEVICE_ID_KEY = 'device_id'` string is now duplicated in `useAuth.ts` and `settings.tsx`. A key rename would require updating both files. This is a known acceptable duplication for a stable, low-change string constant.
+
+**Reversibility:** Easy — removing the Device section from settings.tsx removes the read.
+
+**PM/Tech Lead review required:** No.
+
+---
+**Decision ID:** DEC-011
+**Agent:** Frontend Engineer
+**Task ID:** ux-extraction-back-navigation
+**Timestamp:** 2026-05-14T00:00:00Z
+
+**Context:**
+On web, navigating to `/extraction/<id>` via a direct URL (e.g., copy-pasted or bookmarked) leaves the browser history stack empty. Expo Router's automatic back arrow in the Stack header relies on `router.canGoBack()` being true — when the stack is empty, no arrow is rendered. The extraction screen had no fallback, leaving web users with no way to navigate away without using the browser's own back button or manually changing the URL.
+
+**Options considered:**
+1. Add an explicit back button rendered unconditionally inside the screen's `ScrollView` content area, using `router.canGoBack()` to choose between `router.back()` and `router.replace('/(tabs)/history')` as the fallback — works on both native and web; always visible regardless of header state
+2. Use `useNavigation().setOptions({ headerLeft: ... })` to inject a custom back button into the Stack header — keeps the button in the header position consistent with native conventions, but the header is controlled by `_layout.tsx` and the screen option injection is fragile across Expo Router versions; also does not help when `headerShown: true` but the auto back button is suppressed
+
+**Decision:** Option 1 — explicit back button rendered inside the screen content, above the header metadata row. The button uses a left-arrow glyph and "Back" label. The fallback destination is `/(tabs)/history` (the extractions history tab), which is the most logical prior context for an extraction detail view.
+
+**Rationale:** Option 1 is entirely self-contained in `extraction/[id].tsx` with no dependency on layout options or navigation internals. The button is always present and therefore always testable. On native, it appears alongside (not instead of) the Stack header's automatic back arrow — this slight redundancy is acceptable; the native back arrow will be the primary affordance and the in-content button serves as a fallback for web.
+
+**Trade-offs accepted:** On native, the screen will show two back affordances: the Stack header arrow and the in-content button. This is mildly redundant but not harmful. A designer may choose to hide the in-content button on native using `Platform.select` in a future pass — this is a documented design gap.
+
+**Reversibility:** Easy — removing the `topBar` and `backButton` styles and the `handleBack` handler reverts to the prior state.
+
+**PM/Tech Lead review required:** No — this is a cross-platform navigation correctness fix.

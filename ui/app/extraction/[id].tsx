@@ -2,11 +2,19 @@
  * Extraction status + results screen.
  *
  * Polls every 5 s until completed/failed, then shows playable audio stems.
+ *
+ * Includes an explicit back button that works cross-platform:
+ * - If router.canGoBack() is true (native stack or web navigation that has
+ *   history), calls router.back().
+ * - If router.canGoBack() is false (direct URL navigation on web with an
+ *   empty history stack), navigates to /(tabs)/history as a safe fallback.
+ * The button is always rendered — it does not rely on Expo Router's
+ * automatic header back arrow, which is absent on web when the stack is empty.
  */
 
-import { useLocalSearchParams } from 'expo-router';
-import React, { useMemo } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useMemo } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ErrorView } from '../../src/components/ErrorView';
 import { StatusBadge } from '../../src/components/StatusBadge';
 import { StemPlayer } from '../../src/components/StemPlayer';
@@ -19,6 +27,14 @@ export default function ExtractionScreen() {
   const s = useMemo(() => makeStyles(C), [C]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data, error } = useExtractionPoll(id ?? null);
+
+  const handleBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/history');
+    }
+  }, []);
 
   if (error) return <ErrorView message={error} />;
 
@@ -35,6 +51,19 @@ export default function ExtractionScreen() {
 
   return (
     <ScrollView style={{ backgroundColor: C.bg }} contentContainerStyle={s.scroll}>
+      <View style={s.topBar}>
+        <Pressable
+          onPress={handleBack}
+          style={({ pressed }) => [s.backButton, pressed && s.backButtonPressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={[s.backArrow, { color: C.primary }]}>{'←'}</Text>
+          <Text style={[s.backLabel, { color: C.primary }]}>Back</Text>
+        </Pressable>
+      </View>
+
       <View style={s.header}>
         <StatusBadge status={data.status} />
         {data.cost_credits != null && (
@@ -85,6 +114,31 @@ function makeStyles(C: Theme) {
     scroll:       { padding: 20, gap: 16, maxWidth: 600, width: '100%', alignSelf: 'center' },
     center:       { alignItems: 'center', justifyContent: 'center', padding: 32, gap: 8 },
     hint:         { color: C.textMuted, fontSize: 14 },
+    topBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 4,
+    },
+    backButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingVertical: 4,
+      paddingHorizontal: 2,
+      borderRadius: 6,
+    },
+    backButtonPressed: {
+      opacity: 0.6,
+    },
+    backArrow: {
+      fontSize: 18,
+      fontWeight: '600',
+      lineHeight: 22,
+    },
+    backLabel: {
+      fontSize: 15,
+      fontWeight: '500',
+    },
     header:       { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
     meta:         { fontSize: 13, color: C.textMuted },
     warning: {

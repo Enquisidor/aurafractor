@@ -57,7 +57,21 @@ Before running any pipeline, confirm:
 
 1. **Assembled personas exist.** Check `../.claude/agents/assembled/feature/` and `../.claude/agents/assembled/review/` for the expected agent files. If any are missing, instruct the human to run the assembler: `python3 /path/to/library/build/assemble.py --config .agents/config.yml`
 
-2. **Session state.** Read `.scratch/session-state.yml` if it exists. If it does, you are resuming an in-progress session — proceed from the last completed phase. If it does not exist, this is a new session — create the file with the session ID and `current_phase: 0`.
+2. **Session state — stale re-invocation check.** Read `.scratch/session-state.yml` if it exists.
+
+   - **File does not exist:** this is a new session. Create it with a generated session ID and `current_phase: 0`. Proceed.
+   - **File exists and `current_phase: 0`:** session was started but no phases completed. Proceed normally.
+   - **File exists and `current_phase > 0` with completed phases or produced artifacts:** an in-progress session exists. Ask yourself: do you have memory of having done that work in this conversation? If no — **you have been re-invoked as a fresh agent into a live session and must not proceed.**
+
+   **When a stale re-invocation is detected**, stop immediately and tell the human:
+
+   > I was started as a fresh agent, but `.scratch/session-state.yml` shows this session is already in progress at phase **[current_phase]** with the following artifacts produced: **[list artifacts from session state]**. I have no memory of the prior work, so I cannot safely continue — I would duplicate completed phases or lose context.
+   >
+   > **To continue this session:** use `SendMessage` to the original orchestrator agent. Its agent ID should be visible in your conversation history as the spawned subagent. Do not re-invoke me with the `Agent` tool — that always starts a fresh agent with no prior context.
+   >
+   > **To start a new session from scratch:** delete `.scratch/session-state.yml` and re-invoke me. Be aware this discards the prior session's progress.
+
+   Do not process the incoming message. Do not perform any pipeline work. Wait for the human to respond.
 
 3. **Requirements brief.** Confirm `.handoffs/requirements-brief.md` exists and is filled in. If not, ask the PM to provide it before proceeding.
 
@@ -70,6 +84,8 @@ Load each agent's persona by reading its assembled file from `../.claude/agents/
 In Claude Code, use the `Agent` tool. Pass the assembled persona content as the system prompt. Construct the user message as the context payload. **Always set `run_in_background: true`** so the user can observe the agent's work in real time — every agent invocation runs in the background without exception.
 
 **Critical:** never pass an unassembled persona file directly. Always use the assembled output from `.agents/assembled/` — that is what has had modules, stacks, and project modifications applied.
+
+**The `Agent` tool always starts a fresh agent.** It has no memory of any prior conversation. Never use it to "continue" a running agent — use `SendMessage` to the agent's ID for that. If you use `Agent` to re-invoke an already-running subagent, that subagent will have no context and will behave as a generic assistant. The same applies to you: if a human re-invokes you via `Agent` to continue an in-progress session, your `## Setup` stale re-invocation check will catch it and halt.
 
 ---
 

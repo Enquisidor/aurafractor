@@ -2,7 +2,7 @@
  * Settings screen — theme toggle, device ID, auth status.
  */
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -12,12 +12,22 @@ import {
 } from 'react-native';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { useAuth } from '../../src/hooks/useAuth';
+import { storage } from '../../src/storage/platform';
 import { Theme } from '../../src/theme';
+
+const DEVICE_ID_KEY = 'device_id';
 
 export default function SettingsScreen() {
   const { C, isDark, toggleTheme } = useTheme();
   const { auth, error } = useAuth();
   const s = useMemo(() => makeStyles(C), [C]);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    storage.getItem(DEVICE_ID_KEY).then((id) => {
+      if (id) setDeviceId(id);
+    });
+  }, []);
 
   return (
     <ScrollView style={s.screen} contentContainerStyle={s.scroll}>
@@ -56,6 +66,29 @@ export default function SettingsScreen() {
         )}
       </View>
 
+      {/* Device */}
+      <Text style={s.sectionTitle}>Device</Text>
+      <View style={s.card}>
+        {deviceId != null && (
+          <View style={s.row}>
+            <Text style={s.rowLabel}>Device ID</Text>
+            <Text
+              style={s.rowValueMono}
+              numberOfLines={1}
+              accessibilityLabel={`Device ID: ${deviceId}`}
+            >
+              {deviceId}
+            </Text>
+          </View>
+        )}
+        <View style={s.explanationRow}>
+          <Text style={[s.explanationText, { color: C.textSecondary }]}>
+            Your account is tied to this device. Aurafractor recognises you
+            automatically using your device ID — no password or email required.
+          </Text>
+        </View>
+      </View>
+
     </ScrollView>
   );
 }
@@ -89,6 +122,14 @@ function makeStyles(C: Theme) {
       paddingHorizontal: 16,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: C.border,
+    },
+    explanationRow: {
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+    },
+    explanationText: {
+      fontSize: 13,
+      lineHeight: 19,
     },
     rowLabel:     { fontSize: 15, color: C.textPrimary },
     rowValue:     { fontSize: 15, color: C.textMuted, fontWeight: '500' },

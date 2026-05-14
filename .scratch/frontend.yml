@@ -1,9 +1,9 @@
 agent: frontend
-session_id: auth-surface-registration
+session_id: ux-improvements-3issues
 last_updated: 2026-05-14T00:00:00Z
 status: complete
 
-current_task: auth-surface-registration — wire is_new_user to FirstLaunchModal and verify retry CTA
+current_task: All three UX issues complete — FirstLaunchModal copy, Settings device section, extraction back nav
 
 tasks:
   auth-surface-registration:
@@ -13,5 +13,29 @@ tasks:
     completed_at: 2026-05-14T00:00:00Z
     output: .handoffs/frontend-completion-auth-surface-registration.md
     notes: All 33 tests pass. DEC-007 and DEC-008 logged. No new issues raised.
+
+  ux-first-launch-account-creation:
+    description: Update FirstLaunchModal to show active account-creation confirmation copy when isNewUser is true
+    status: complete
+    started_at: 2026-05-14T00:00:00Z
+    completed_at: 2026-05-14T00:00:00Z
+    output: ui/src/components/FirstLaunchModal.tsx
+    notes: Two conditional JSX branches in existing component. DEC-009 logged. 33 tests pass.
+
+  ux-settings-device-id:
+    description: Add Device section to Settings screen with device ID display and plain-language explanation
+    status: complete
+    started_at: 2026-05-14T00:00:00Z
+    completed_at: 2026-05-14T00:00:00Z
+    output: ui/app/(tabs)/settings.tsx
+    notes: Reads device_id from storage in useEffect. DEC-010 logged. No new issues.
+
+  ux-extraction-back-navigation:
+    description: Add explicit cross-platform back button to extraction/[id].tsx with canGoBack fallback to history tab
+    status: complete
+    started_at: 2026-05-14T00:00:00Z
+    completed_at: 2026-05-14T00:00:00Z
+    output: ui/app/extraction/[id].tsx
+    notes: router.canGoBack() -> router.back() else router.replace('/(tabs)/history'). DEC-011 logged. 33 tests pass.
 
 blockers: []
