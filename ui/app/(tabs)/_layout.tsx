@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -11,12 +11,18 @@ function Icon({ emoji }: { emoji: string }) {
 
 export default function TabLayout() {
   const { C } = useTheme();
-  const { error } = useAuth();
+  const { error, loading, retry } = useAuth();
   const insets = useSafeAreaInsets();
   const [dismissed, setDismissed] = useState(false);
 
   // Tab bar is ~49pt; sit the banner just above it
   const TAB_BAR_HEIGHT = 49;
+
+  // Reset dismissed state when a new error surfaces after a retry
+  const handleRetry = () => {
+    setDismissed(false);
+    retry();
+  };
 
   return (
     <View style={{ flex: 1 }}>
@@ -53,17 +59,51 @@ export default function TabLayout() {
         />
       </Tabs>
 
-      {error && !dismissed && (
-        <View style={[
-          styles.banner,
-          { backgroundColor: C.errorDim, borderTopColor: C.error, bottom: insets.bottom + TAB_BAR_HEIGHT },
-        ]}>
+      {error && !dismissed && !loading && (
+        <View
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+          style={[
+            styles.banner,
+            { backgroundColor: C.errorDim, borderTopColor: C.error, bottom: insets.bottom + TAB_BAR_HEIGHT },
+          ]}
+        >
           <Text style={[styles.bannerText, { color: C.error }]}>
-            Backend unreachable — some features unavailable
+            Could not connect — some features unavailable
           </Text>
-          <Pressable onPress={() => setDismissed(true)} hitSlop={12}>
+          <Pressable
+            onPress={handleRetry}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Retry connection"
+            style={[styles.retryButton, { borderColor: C.error }]}
+          >
+            <Text style={[styles.retryLabel, { color: C.error }]}>Retry</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setDismissed(true)}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss error banner"
+          >
             <Text style={[styles.dismiss, { color: C.error }]}>✕</Text>
           </Pressable>
+        </View>
+      )}
+
+      {/* Inline spinner shown while a retry is in progress */}
+      {loading && !error && (
+        <View
+          style={[
+            styles.banner,
+            { backgroundColor: C.primaryDim, borderTopColor: C.primary, bottom: insets.bottom + TAB_BAR_HEIGHT },
+          ]}
+          accessibilityLiveRegion="polite"
+        >
+          <ActivityIndicator size="small" color={C.primary} />
+          <Text style={[styles.bannerText, { color: C.primary }]}>
+            Connecting…
+          </Text>
         </View>
       )}
     </View>
@@ -83,5 +123,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   bannerText: { flex: 1, fontSize: 13, fontWeight: '500', textAlign: 'center' },
+  retryButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  retryLabel: { fontSize: 12, fontWeight: '600' },
   dismiss:    { fontSize: 14, fontWeight: '700' },
 });

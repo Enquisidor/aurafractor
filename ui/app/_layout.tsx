@@ -8,13 +8,14 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { Provider } from 'react-redux';
+import { FirstLaunchModal } from '../src/components/FirstLaunchModal';
 import { ThemeProvider, useTheme } from '../src/contexts/ThemeContext';
 import { useAuth } from '../src/hooks/useAuth';
 import { store } from '../src/store/store';
 import { hydrateUploadQueue, syncUploadQueue } from '../src/store/uploadQueueSlice';
 
 function RootLayoutInner() {
-  const { loading, error } = useAuth();
+  const { loading, error, isNewUser } = useAuth();
   const { C, isDark } = useTheme();
 
   // Hydrate the upload queue from storage once on mount
@@ -52,13 +53,19 @@ function RootLayoutInner() {
         />
       </Stack>
 
+      {/* First-launch onboarding modal — shown once, persisted via storage.
+          isNewUser (from the auth API's is_new_user field) forces the modal
+          visible immediately after a successful first-time registration,
+          without waiting for the storage read. */}
+      {!loading && <FirstLaunchModal isNewUser={isNewUser} />}
+
       {/* Full-screen overlay only while first loading */}
       {loading && (
         <View style={[styles.overlay, { backgroundColor: C.bg }]}>
           <ActivityIndicator size="large" color={C.primary} />
         </View>
       )}
-      {/* Banner is shown in the tabs layout so it never overlaps Stack headers */}
+      {/* Auth error banner is shown in the tabs layout so it never overlaps Stack headers */}
     </>
   );
 }

@@ -1,9 +1,9 @@
 agent: orchestrator
 session_id: cors-fix-001
-last_updated: "2026-05-06T13:00:00Z"
+last_updated: "2026-05-06T14:00:00Z"
 status: active
 
-current_task: Delegating GCP/infrastructure CORS investigation to DevOps agent
+current_task: Firebase Hosting 404 fix complete — awaiting human confirmation to commit
 
 tasks:
   cors-investigation:
@@ -57,12 +57,32 @@ tasks:
       Cloud Run service config, CI/CD deploy flags, DNS routing for api.aurafractor.com.
       Backend code is correct; hypothesis is OPTIONS preflight is being blocked or
       rewritten before reaching Flask.
-    status: in-progress
+    status: complete
     started_at: "2026-05-06T13:00:00Z"
-    completed_at: null
-    output: null
+    completed_at: "2026-05-06T13:30:00Z"
+    output: .handoffs/devops-completion-ISS-003.md
     notes: >
-      Delegated to DevOps agent. Investigating: ui/firebase.json, terraform/ Cloud Run
-      definition, .github/workflows/backend-deploy.yml, and DNS/load balancer resources.
+      Delegated to DevOps agent. Completed.
+
+  firebase-hosting-404-fix:
+    description: >
+      Fix Firebase Hosting "Page Not Found" at https://aurafractor.web.app.
+      Root causes: firebase.json public dir pointed to dist/ instead of dist/web/;
+      workflow_dispatch deploy had no build step and deployed an empty checkout.
+    status: complete
+    started_at: "2026-05-06T13:30:00Z"
+    completed_at: "2026-05-06T14:00:00Z"
+    output: |
+      /Users/alexweinstein/Documents/Code/aurafractor/ui/firebase.json
+      /Users/alexweinstein/Documents/Code/aurafractor/.github/workflows/web-deploy.yml
+    notes: >
+      Delegated to Frontend agent. Two fixes applied:
+      (1) ui/firebase.json: "public" changed from "dist" to "dist/web" to match
+          expo export output directory.
+      (2) .github/workflows/web-deploy.yml: added three conditional steps
+          (setup-node, npm ci, expo export) guarded by
+          github.event_name == 'workflow_dispatch' so manual deploys always
+          have a built artifact. Automated workflow_run path unchanged.
+      Decision log entries DEC-004 and DEC-005 written to .logs/decisions.md.
 
 blockers: []

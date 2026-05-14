@@ -71,4 +71,47 @@ describe('useAuth', () => {
     expect(result.current.error).toBe('network error');
     expect(result.current.auth).toBeNull();
   });
+
+  it('exposes a retry function', async () => {
+    mockLoadAuth.mockResolvedValue(null);
+    mockRegisterDevice.mockRejectedValue(new Error('network error'));
+    const { result } = renderHook(() => useAuth());
+    await act(async () => { await Promise.resolve(); });
+    expect(typeof result.current.retry).toBe('function');
+  });
+
+  it('retry re-runs auth and clears the error on success', async () => {
+    mockLoadAuth.mockResolvedValue(null);
+    // First attempt fails; second attempt (triggered by retry) succeeds.
+    mockRegisterDevice
+      .mockRejectedValueOnce(new Error('network error'))
+      .mockResolvedValueOnce(MOCK_AUTH_STATE);
+
+    const { result } = renderHook(() => useAuth());
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.error).toBe('network error');
+
+    await act(async () => {
+      result.current.retry();
+      await Promise.resolve();
+    });
+
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
+    expect(result.current.auth).toEqual(MOCK_AUTH_STATE);
+  });
+
+  it('retry sets loading=true while the attempt is in flight', async () => {
+    mockLoadAuth.mockResolvedValue(null);
+    mockRegisterDevice.mockRejectedValue(new Error('network error'));
+    const { result } = renderHook(() => useAuth());
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.error).toBe('network error');
+
+    // Invoke retry; before awaiting we should see loading flip to true.
+    act(() => { result.current.retry(); });
+    expect(result.current.loading).toBe(true);
+    // Settle the async chain.
+    await act(async () => { await Promise.resolve(); });
+  });
 });

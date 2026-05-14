@@ -1,0 +1,17 @@
+agent: frontend
+session_id: auth-surface-registration
+last_updated: 2026-05-14T00:00:00Z
+status: complete
+
+current_task: auth-surface-registration — wire is_new_user to FirstLaunchModal and verify retry CTA
+
+tasks:
+  auth-surface-registration:
+    description: Thread is_new_user from AuthResponse through AuthState and useAuth hook; add isNewUser prop to FirstLaunchModal; pass from _layout.tsx; confirm error banner retry CTA is already present
+    status: complete
+    started_at: 2026-05-14T00:00:00Z
+    completed_at: 2026-05-14T00:00:00Z
+    output: .handoffs/frontend-completion-auth-surface-registration.md
+    notes: All 33 tests pass. DEC-007 and DEC-008 logged. No new issues raised.
+
+blockers: []

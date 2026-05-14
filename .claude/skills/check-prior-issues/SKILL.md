@@ -6,39 +6,50 @@ allowed-tools: Read, Glob
 
 # Check Prior Issues — Pre-flight for Bug Fixes
 
-Before spending time diagnosing a problem, check whether it has already been seen and solved (or attempted) in this session.
+Before spending time diagnosing a problem, check whether it has already been seen and solved (or attempted) in this session. **Scan for relevance before ingesting** — do not read entire log files in full. Extract only what is pertinent to the current problem.
 
 ## Protocol
 
-### Step 1 — Check the issue log
+### Step 1 — Scan the issue log for relevance
 
-Read `.logs/issues.md`. Search for entries related to the current problem by keyword (error message, file name, component name). If a matching entry exists:
+Read `.logs/issues.md`. **Do not ingest the whole file.** First scan entry headings and one-line summaries to identify entries that share keywords with the current problem (error message fragment, file name, component name, job name). Only read the full body of entries that appear relevant.
 
+For each relevant entry found:
 - Note the issue ID (ISS-NNN), its status, and what was tried
 - If status is `resolved`: the fix is documented — apply it directly rather than re-investigating
-- If status is `open` or `attempted`: read the full entry to understand what was already tried and ruled out before forming a new hypothesis
+- If status is `open` or `attempted`: extract what was already tried and ruled out; use this to avoid repeating failed approaches
 
-### Step 2 — Check the session scratch state
+Discard entries that are clearly unrelated. Do not summarise unrelated history into your working context.
 
-Read `.scratch/session-state.yml` and any relevant agent scratch file (e.g. `.scratch/orchestrator.yml`, `.scratch/devops.yml`). Look for:
+### Step 2 — Scan session scratch state for relevance
 
-- Prior task entries for this problem (`notes` fields often contain diagnosis details)
-- Any recorded root causes, failed approaches, or known constraints
+Read `.scratch/session-state.yml` and any obviously relevant agent scratch file (e.g. `.scratch/orchestrator.yml`, `.scratch/devops.yml`). **Scan task subjects and one-line notes first.** Only read full `notes` blocks for tasks whose subject matches the current problem area.
 
-### Step 3 — Check prior decisions
+Extract:
+- Prior root cause diagnoses for this problem
+- Failed approaches that were explicitly ruled out
+- Known constraints that shaped prior decisions
 
-Read `.logs/decisions.md`. If a decision was made about the component or area being investigated (e.g. "chose explicit prisma generate over postinstall hook"), respect that decision — don't re-introduce the rejected approach.
+Ignore tasks unrelated to the current problem.
+
+### Step 3 — Scan decisions log for relevance
+
+Read `.logs/decisions.md`. **Scan decision titles only first.** Only read the full body of decisions that relate to the component or area being investigated. If a relevant decision exists (e.g. "chose explicit prisma generate over postinstall hook"), respect it — do not re-introduce the rejected approach.
 
 ### Step 4 — Report before proceeding
 
-Before starting diagnosis, briefly state:
+Summarise what was found in **3–5 lines maximum**:
 
-- What prior context was found (issue IDs, session notes)
+- Which prior entries were relevant (IDs or task names)
 - What approaches are already ruled out
 - What your starting hypothesis is, informed by the prior context
 
-If no prior context exists, state that and proceed with fresh investigation.
+If no relevant prior context exists, say so in one line and proceed.
+
+## Relevance criteria
+
+An entry is relevant if it shares **at least two** of: the same error message or substring, the same file or module, the same CI job name, the same dependency or tool. A single shared keyword is not sufficient — many unrelated issues touch the same files.
 
 ## Why this matters
 
-Recurring errors are often the same root cause surfacing in a new job or context. Re-investigating from scratch wastes time and risks repeating the same failed approaches. A 30-second check of the issue log frequently surfaces the exact diagnosis needed.
+Recurring errors are often the same root cause surfacing in a new job or context. Re-investigating from scratch wastes time and risks repeating the same failed approaches. But ingesting all prior history indiscriminately bloats context and buries the signal. Scan first, ingest only what matches.

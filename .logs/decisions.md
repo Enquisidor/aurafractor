@@ -68,3 +68,119 @@ The production Dockerfile bound gunicorn to port 8080 (hardcoded in the CMD) but
 **Reversibility:** Easy — this is a non-destructive change to a container startup command and a Terraform port declaration. No data or state is affected.
 
 **PM/Tech Lead review required:** No — this is a bug fix correcting a misconfiguration. No functional behavior changes.
+
+---
+**Decision ID:** DEC-004
+**Agent:** Frontend Engineer
+**Task ID:** firebase-hosting-404-fix
+**Timestamp:** 2026-05-14T00:00:00Z
+
+**Context:**
+The live website at https://aurafractor.web.app was returning a "Page Not Found" error on every page load. Firebase Hosting was configured to serve files from `ui/dist/`, but the web build workflow exports the site to `ui/dist/web/` (using `npx expo export --platform web --output-dir dist/web`). Because the configured public directory did not match the actual output directory, Firebase was looking for `ui/dist/index.html` which never existed — the real file was at `ui/dist/web/index.html`. Every visitor saw a 404.
+
+**Options considered:**
+1. Change `"public": "dist"` to `"public": "dist/web"` in `ui/firebase.json` — aligns the Hosting public directory with the actual build output; zero application code changes required
+2. Change the Expo export command in the build workflow to output to `dist/` instead of `dist/web/` — would also fix the mismatch, but requires changing the source of truth (the build workflow) and risks breaking the artifact upload/download path which already uses `dist/web/`
+
+**Decision:** Option 1 — update `ui/firebase.json` to `"public": "dist/web"`.
+
+**Rationale:** The build workflow (`web-build.yml`) and the artifact download path in `web-deploy.yml` both use `dist/web/` as the canonical output location. Changing `firebase.json` to match the established output path is the minimal, non-breaking fix. Changing the export command's output directory (Option 2) would require coordinating changes across two workflow files and risks invalidating already-uploaded build artifacts.
+
+**Trade-offs accepted:** None — this is a pure correction of a misconfiguration with no trade-offs.
+
+**Reversibility:** Trivial — reverting one JSON field restores the previous (broken) state. No data or state is affected.
+
+**PM/Tech Lead review required:** No — this is a bug fix that restores the site to working condition. No user-facing behavior changes beyond the site loading correctly.
+
+---
+**Decision ID:** DEC-005
+**Agent:** Frontend Engineer
+**Task ID:** firebase-hosting-404-fix
+**Timestamp:** 2026-05-14T00:00:00Z
+
+**Context:**
+The `web-deploy.yml` workflow can be triggered in two ways: automatically after the "Web — Build" workflow completes (`workflow_run` event), or manually by a developer pressing "Run workflow" in GitHub Actions (`workflow_dispatch` event). The artifact download step that fetches the compiled site from the build workflow is guarded by `if: github.event_name == 'workflow_run'`, meaning it is intentionally skipped on manual runs. However, no build step existed to replace it — so a manual dispatch would proceed to the Firebase Deploy step with an empty checkout and no compiled files, deploying nothing (or overwriting the live site with an empty directory).
+
+**Options considered:**
+1. Add conditional build steps (setup-node, npm ci, expo export) that run only when `github.event_name == 'workflow_dispatch'` — ensures manual deploys always produce a fresh artifact from the current branch before deploying
+2. Remove the `workflow_dispatch` trigger entirely — eliminates the broken path, but also removes the ability to perform a manual redeploy without pushing a new commit (useful for hotfixes and rollback scenarios)
+3. Add a hard failure step when `workflow_dispatch` is used without a prebuilt artifact — safe but defeats the purpose of supporting manual dispatch
+
+**Decision:** Option 1 — add three conditional steps (setup-node@v4 with node-version 20, `npm ci --legacy-peer-deps`, `npx expo export --platform web --output-dir dist/web`) each gated on `github.event_name == 'workflow_dispatch'`.
+
+**Rationale:** Manual dispatch is a legitimate operational tool — it allows redeployment from a known-good commit without waiting for the full CI pipeline. Removing the trigger (Option 2) would take that capability away. Building inline on manual dispatch (Option 1) keeps the capability intact and mirrors what the automated `workflow_run` path does, just within a single job rather than two. The build steps are identical to those in `web-build.yml`, so there is no risk of producing a different artifact.
+
+**Trade-offs accepted:** A manual dispatch takes longer than an automated deploy (it must run the full build before deploying), but this is the correct behaviour — a manual deploy should build from source rather than deploying a stale or empty artifact.
+
+**Reversibility:** Easy — removing the three conditional steps reverts to the broken manual-dispatch behaviour. No data or state is affected.
+
+**PM/Tech Lead review required:** No — this is a bug fix restoring correct CI behaviour. No user-facing product changes.
+
+---
+**Decision ID:** DEC-006
+**Agent:** Frontend Engineer
+**Task ID:** ad936f4d9b4f2170d
+**Timestamp:** 2026-05-14T00:00:00Z
+
+**Context:**
+The task required implementing a first-launch onboarding moment (a modal or banner shown once when the user opens the app for the first time). No visual design reference was provided — no Figma file, mockup, or design token specification exists for this screen. The app uses a neon-pastel theme with design tokens already defined in `src/theme.ts` and `ThemeContext`. A decision was needed on how to implement the visual design in the absence of a spec.
+
+**Options considered:**
+1. Implement the modal using the existing project design tokens (`C.surface`, `C.primary`, `C.textPrimary`, `C.textSecondary`, `C.border`) from `ThemeContext` — produces a visually consistent result that matches the app's established aesthetic; can be replaced with a finalized design later with no structural changes
+2. Block implementation pending a design reference — correct process in a fully staffed design pipeline, but this is a scope-defined task with no design resource assigned; blocking indefinitely would stall the feature
+
+**Decision:** Option 1 — implement `FirstLaunchModal` using existing design tokens. Document the gap so the PM and designer can schedule a design pass.
+
+**Rationale:** The modal's structure (title, body copy, CTA button) is stable regardless of the final visual design. Using existing tokens ensures the modal is theme-aware (light/dark), accessible, and visually consistent with the rest of the app. The component can be reskinned to a finalized design without changing its logic or tests. Blocking on a design reference would delay the auth retry work, which is also part of this task and has no design dependency.
+
+**Trade-offs accepted:** The current visual design is functional but not finalized. A designer may choose different typography sizes, spacing, illustration, or animation. All of these are contained within `FirstLaunchModal.tsx` and require no changes to other files.
+
+**Reversibility:** Easy — the modal is a standalone component. Any visual changes are confined to `src/components/FirstLaunchModal.tsx`. The storage key (`first_launch_seen`) and the dismissal logic are stable.
+
+**PM/Tech Lead review required:** Yes — a designer should review the modal copy ("Welcome to Aurafractor", "No account needed…") and visual treatment before the feature ships to production. The current implementation is a functional placeholder.
+
+---
+**Decision ID:** DEC-007
+**Agent:** Frontend Engineer
+**Task ID:** auth-surface-registration
+**Timestamp:** 2026-05-14T00:00:00Z
+
+**Context:**
+The `AuthResponse` from `POST /auth/register` includes an `is_new_user` boolean, but this field was not being used anywhere in the frontend. The task required surfacing a confirmation to the user after successful first-time registration. The `FirstLaunchModal` already existed and was already being shown on first launch via a storage-based flag (`first_launch_seen`). A decision was needed on whether to replace the storage-based trigger with an auth-based trigger, or to add an auth-based trigger that works alongside the storage-based one.
+
+**Options considered:**
+1. Replace the `first_launch_seen` storage trigger entirely with `is_new_user` from the auth API — cleaner, single source of truth; but requires a successful API call before the modal can ever appear, meaning a network failure on first launch would silently suppress the onboarding moment
+2. Keep the storage-based trigger and add `is_new_user` as an additional signal that forces the modal visible (overrides the storage check) — provides belt-and-suspenders coverage: the modal appears immediately from the API signal, or falls back to the storage check if the API call has not yet resolved; on-dismiss, `first_launch_seen` is written in both paths so the modal never appears again
+
+**Decision:** Option 2 — add `isNewUser` prop to `FirstLaunchModal`. When `isNewUser` is true the modal skips the storage read and renders immediately. On dismiss in both paths, `first_launch_seen` is written to storage so the modal never re-appears. The storage-based fallback remains for edge cases where the API flag is not available (e.g., tests that render the component without auth context).
+
+**Rationale:** Option 2 preserves the robustness of the existing storage path while adding the new auth-signal path. The storage path continues to satisfy the existing tests without modification. The `isNewUser` prop defaults to `false`, so all existing call sites (including tests that render `<FirstLaunchModal />` without props) are unaffected.
+
+**Trade-offs accepted:** If a user clears app storage manually (e.g., uninstalling and reinstalling), the storage flag will be gone and the modal may re-appear even if the backend still has their device registered. In that scenario, `loadAuth()` would return null (no stored token), `registerDevice` would be called again, and the backend may return `is_new_user: false` for the known device — which means the modal would not appear via the API path, and the storage path would show it (no `first_launch_seen` key). This is acceptable — reinstalling is effectively a fresh start for the local app state.
+
+**Reversibility:** Easy — the `isNewUser` prop is optional and defaults to false. Removing the prop from `_layout.tsx` reverts to pure storage-based behaviour.
+
+**PM/Tech Lead review required:** No — this is an internal implementation choice with no user-visible behaviour change from the prior release (modal continues to show once on first launch).
+
+---
+**Decision ID:** DEC-008
+**Agent:** Frontend Engineer
+**Task ID:** auth-surface-registration
+**Timestamp:** 2026-05-14T00:00:00Z
+
+**Context:**
+The task description stated that the error UI shows "only a dismissible 'Backend unreachable' banner with no retry path." A review of the current `ui/app/(tabs)/_layout.tsx` showed that a Retry button already exists in the error banner alongside the dismiss button. The banner currently reads "Could not connect — some features unavailable" with a "Retry" button and a dismiss (X) button. This appears to have been implemented in a prior session. A decision was needed on whether to make further changes to the error UI or treat this as already complete.
+
+**Options considered:**
+1. Accept the existing error banner with Retry button as satisfying requirement 2 of the task — no additional changes needed; the retry CTA is already present and functional
+2. Replace the banner with a more prominent full-screen error state (e.g., a blocking modal with a Retry button that cannot be dismissed) — stronger enforcement of the "retry path" intent, but would block the user from using the app in degraded mode
+
+**Decision:** Option 1 — the existing error banner with Retry button already satisfies the "proper retry CTA" requirement. No additional changes to the tabs layout error UI.
+
+**Rationale:** The banner exposes `retry` from `useAuth`, resets `dismissed` state on retry, and shows a loading spinner while the retry attempt is in flight. The error cannot become a dead end because the Retry button is always present alongside the dismiss control. The existing implementation is accessible (role="alert", aria-live="polite", accessibilityRole="button" on the Retry) and functional. A full-screen blocking error modal (Option 2) would reduce usability for users with intermittent connectivity who may want to read content already loaded.
+
+**Trade-offs accepted:** The error banner can be dismissed, leaving no persistent retry CTA in view. A user who dismisses the banner has no way to retry without restarting the app. This is a known limitation and a design gap — a persistent connection status indicator (e.g., in the Settings tab) would address it.
+
+**Reversibility:** N/A — no changes were made.
+
+**PM/Tech Lead review required:** No.

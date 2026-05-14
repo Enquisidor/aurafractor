@@ -106,3 +106,80 @@ OBS-002: The staging environment (FLASK_ENV=staging) uses the same CORS origin l
 
 **Issues flagged:**
 - ISS-003: container_port/gunicorn port mismatch — root cause of persistent CORS errors (P1). Fixed in this session.
+
+---
+## firebase-hosting-404-fix | 2026-05-14
+
+**Agent:** Frontend Engineer
+**Task ID:** firebase-hosting-404-fix
+**Status:** Completed
+
+**Task description:** Fix "Page Not Found" error at https://aurafractor.web.app caused by a wrong Firebase Hosting public directory and a missing build step for manual workflow_dispatch deploys.
+
+**Inputs received:**
+- `ui/firebase.json`
+- `.github/workflows/web-deploy.yml`
+- Orchestrator diagnosis: two root causes identified (wrong public dir, missing workflow_dispatch build)
+
+**Outputs produced:**
+- `ui/firebase.json` — changed `"public": "dist"` to `"public": "dist/web"` so Firebase Hosting serves from the directory the Expo export command actually produces
+- `.github/workflows/web-deploy.yml` — added three conditional steps (setup-node@v4, npm ci, expo export) that run only when `github.event_name == 'workflow_dispatch'`, ensuring manual deploys always have a built artifact before the Firebase Deploy step
+
+**Self-checks applied:**
+- Security: no secrets introduced; no new surface exposed
+- Accessibility: config-only change; no UI components affected
+- Performance: no impact on bundle size or runtime behaviour
+- Change impact: two config/CI files only; minimal blast radius; no domain naming involved
+- Design accuracy (architectural fidelity): no domain concepts or API contracts touched
+
+**Decisions made:**
+- DEC-004: Changed Firebase Hosting public dir to `dist/web` and added workflow_dispatch build steps. See decisions.md.
+
+**Assumptions made:**
+- The `npx expo export --platform web --output-dir dist/web` command is available in the CI environment after `npm ci --legacy-peer-deps` completes, as it is already used in `web-build.yml`.
+- No other workflow or script reads `ui/firebase.json`'s `public` field directly; Firebase CLI is the sole consumer.
+
+**Issues flagged:**
+- None.
+
+---
+## auth-surface-registration | 2026-05-14
+
+**Agent:** Frontend Engineer
+**Task ID:** auth-surface-registration
+**Status:** Completed
+
+**Task description:** Wire the `is_new_user` field from the `POST /auth/register` response into the UI so first-time registration is confirmed to the user, and verify that the auth error recovery UI has a working retry CTA.
+
+**Inputs received:**
+- `ui/src/hooks/useAuth.ts`
+- `ui/app/_layout.tsx`
+- `ui/app/(tabs)/_layout.tsx`
+- `ui/src/api/client.ts`
+- `ui/src/store/auth.ts`
+- `ui/src/components/FirstLaunchModal.tsx`
+- `ui/src/__tests__/hooks.useAuth.test.ts`
+- `ui/src/__tests__/components.test.tsx`
+
+**Outputs produced:**
+- `ui/src/store/auth.ts` — added optional `isNewUser?: boolean` to `AuthState`; `registerDevice` now returns `isNewUser: res.is_new_user` from the API response
+- `ui/src/hooks/useAuth.ts` — added `isNewUser` state; set from `registerDevice` result (`state.isNewUser ?? false`); exposed in hook return value
+- `ui/src/components/FirstLaunchModal.tsx` — added optional `isNewUser` prop; when `true`, bypasses the storage read and renders the modal immediately (auth-signal path); storage write on dismiss remains in both paths
+- `ui/app/_layout.tsx` — destructures `isNewUser` from `useAuth` and passes it to `<FirstLaunchModal isNewUser={isNewUser} />`
+
+**Self-checks applied:**
+- Security: no tokens or credentials exposed in UI; `isNewUser` is a boolean derived from API response — not sensitive; no `dangerouslySetInnerHTML` or dynamic URL construction introduced. Passed.
+- Accessibility: `FirstLaunchModal` retains all existing accessibility attributes (`accessibilityViewIsModal`, `accessibilityRole="button"`, `onRequestClose`). No regressions. Passed.
+- Performance: no new renders, no list components, no additional network requests. `isNewUser` state is a primitive boolean — no memoization needed. Passed.
+- Design accuracy (architectural fidelity): field name `isNewUser` maps directly from `is_new_user` in `AuthResponse` (API contract field). Component name `FirstLaunchModal` is unchanged. All domain-concept naming (`AuthState`, `registerDevice`, `useAuth`) unchanged. Passed.
+
+**Decisions made:**
+- DEC-007: Added `isNewUser` as an additive signal to `FirstLaunchModal` alongside the existing storage-based trigger (rather than replacing storage trigger). See decisions.md.
+- DEC-008: Existing error banner in `(tabs)/_layout.tsx` already satisfies the retry CTA requirement — no further changes made. See decisions.md.
+
+**Assumptions made:**
+- The `is_new_user` field in `AuthResponse` is always present (it is declared as `boolean` not `boolean | undefined` in `client.ts`). Treat as reliable API contract field.
+- The console warnings about `act(...)` in `hooks.useAuth.test.ts` are pre-existing (same pattern in `hooks.useExtraction.test.ts`) and do not indicate test failures.
+
+**Issues flagged:**
+- None.

@@ -19,6 +19,12 @@ export interface AuthState {
   refreshToken: string;
   subscriptionTier: 'free' | 'pro' | 'studio';
   creditsRemaining: number;
+  /**
+   * True only on the first registration of this device. Undefined when
+   * loading from persisted storage (returning user). Consumers should
+   * default to false when undefined.
+   */
+  isNewUser?: boolean;
 }
 
 export async function loadAuth(): Promise<AuthState | null> {
@@ -35,6 +41,7 @@ export async function loadAuth(): Promise<AuthState | null> {
     refreshToken,
     subscriptionTier: (subscriptionTier as AuthState['subscriptionTier']) ?? 'free',
     creditsRemaining: 0,
+    // isNewUser is intentionally absent: loading from storage means a returning user
   };
 }
 
@@ -60,6 +67,7 @@ export async function registerDevice(deviceId: string): Promise<AuthState> {
     refreshToken: res.refresh_token,
     subscriptionTier: res.subscription_tier,
     creditsRemaining: res.credits_remaining,
+    isNewUser: res.is_new_user,
   };
 }
 
