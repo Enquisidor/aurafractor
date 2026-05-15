@@ -22,6 +22,7 @@ from database.models import (
 )
 from services.credits import compute_extraction_cost, charge_for_extraction, refund_for_failed_extraction
 from services.nlp import parse_label_to_params, compute_ambiguity_score
+from services.storage import get_signed_url, GCS_BUCKET
 from services.tasks import enqueue_extraction_job
 
 logger = logging.getLogger(__name__)
@@ -270,7 +271,23 @@ def get_extraction_status(extraction_id: str, user_id: str) -> Dict:
     }
 
     if row['status'] == 'completed' and row.get('result_sources'):
-        response['results'] = {'sources': row['result_sources']}
+        signed_sources = []
+        gs_prefix = f'gs://{GCS_BUCKET}/'
+        https_prefix = f'https://storage.googleapis.com/{GCS_BUCKET}/'
+        for source in row['result_sources']:
+            s = dict(source)
+            # Regenerate a fresh signed URL for the stem audio (60-min TTL).
+            gcs_path = s.get('gcs_path', '')
+            if gcs_path.startswith(gs_prefix):
+                blob_path = gcs_path[len(gs_prefix):]
+                s['audio_url'] = get_signed_url(blob_path, expiration_minutes=60)
+            # Regenerate a fresh signed URL for the waveform JSON.
+            waveform_url = s.get('waveform_url', '')
+            if waveform_url.startswith(https_prefix):
+                blob_path = waveform_url[len(https_prefix):].split('?')[0]
+                s['waveform_url'] = get_signed_url(blob_path, expiration_minutes=60)
+            signed_sources.append(s)
+        response['results'] = {'sources': signed_sources}
         response['processing_time_seconds'] = row.get('processing_time_seconds')
 
     return response

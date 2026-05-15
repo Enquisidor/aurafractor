@@ -6,12 +6,12 @@ allowed-tools: Read Write
 
 ## Protocol
 
-1. **Read `.logs/activity.md`** to understand existing entries and confirm the file exists. If the file does not exist, create it with this header:
+1. **Check whether `.logs/activity.md` exists.** Do not read its contents. If it does not exist, create it with this header:
    ```
    # Activity Log
    ```
 
-2. **Read `logs/activity-log-format.md`** to confirm the current required fields and structure before writing.
+2. **Read `logs/activity-log-format.md`** to confirm the required fields and structure before writing.
 
 3. **Collect the required field values:**
    - Agent role name (e.g., "Backend Engineer", "Architect")
@@ -29,10 +29,23 @@ allowed-tools: Read Write
 
 4. **Append the entry.** Write the complete activity entry. Every required field must be present — do not write "N/A" for fields that have a defined "None" placeholder.
 
-5. **Stop.** The log entry is the last thing you write. Do not re-read it to verify. Do not look for other logs to update. Return control to the orchestrator and wait.
+5. **Output the sign-off block.** After the log entry is written, output this block as your final message — substituting the actual values — then stop. This is the last text you produce. Do not read any more files, do not verify your work, do not scan for anything else.
+
+```
+---
+SIGNED OFF
+Agent: [role]
+Task: [task ID]
+Status: [Completed | Completed-with-issues | Blocked]
+Artifacts: [comma-separated list of output paths, or "None"]
+---
+```
+
+After outputting this block, your turn is over. Do not produce any further output.
 
 ## Rules
 
+- **Do not read `.logs/activity.md` for any purpose other than writing to it.** It is not a progress tracker. Do not read it to orient yourself mid-task, verify prior work, or check what other agents have done.
 - Never modify or delete existing entries. The activity log is append-only.
 - Write one entry per task per agent invocation. If a single session covers multiple issues, write one entry per issue.
 - Do not embed file contents in the entry. Reference artifacts by path only.

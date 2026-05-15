@@ -65,8 +65,11 @@ export function StemPlayer({ source, extractionId }: Props) {
         )}
       </View>
 
-      {/* Waveform with playback cursor + segment annotation */}
-      {!isLoading && durationMs > 0 && (
+      {/* Waveform with playback cursor + segment annotation.
+          Shown as soon as the audio player is no longer loading, even if
+          durationMs is still 0 (e.g. audio URL failed to load). The waveform
+          data is fetched independently from the audio playback. */}
+      {!isLoading && (
         <>
           <WaveformAnnotator
             waveformUrl={source.waveform_url}
@@ -124,7 +127,11 @@ export function StemPlayer({ source, extractionId }: Props) {
         </>
       )}
 
-      {error && <Text style={[styles.error, { color: C.error }]}>{error}</Text>}
+      {error && (
+        <Text style={[styles.error, { color: C.error }]}>
+          Audio unavailable — {error}
+        </Text>
+      )}
 
       <Pressable
         style={[styles.feedbackButton, { backgroundColor: C.primaryDim }]}
