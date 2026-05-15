@@ -1,25 +1,35 @@
 /**
  * Audio player card for a single extracted stem.
  *
- * Shows label, model, play/pause button, scrub bar, and a feedback button.
+ * Shows label, model, play/pause button, waveform (with playback cursor and
+ * optional segment selection), and a feedback button.
+ *
+ * Segment annotation:
+ *   - "Select region" button enters selection mode.
+ *   - User drags on the waveform to define start/end seconds.
+ *   - Selected region is highlighted fuchsia on the waveform.
+ *   - Time range is shown below the waveform; "Clear" removes it.
+ *   - If a region is selected when "Give Feedback" is tapped, the segment
+ *     times are passed as route params to the feedback screen.
  */
 
 import { router } from 'expo-router';
-import React, { useRef } from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ExtractionResult } from '../api/client';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
+import { WaveformAnnotator } from './WaveformAnnotator';
 
 interface Props {
   source: ExtractionResult;
   extractionId: string;
 }
 
-function formatMs(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  const m = Math.floor(s / 60);
-  return `${m}:${String(s % 60).padStart(2, '0')}`;
+function formatSec(s: number): string {
+  const mins = Math.floor(s / 60);
+  const secs = Math.floor(s % 60);
+  return `${mins}:${String(secs).padStart(2, '0')}`;
 }
 
 export function StemPlayer({ source, extractionId }: Props) {
@@ -27,8 +37,9 @@ export function StemPlayer({ source, extractionId }: Props) {
   const { isPlaying, isLoading, positionMs, durationMs, error, toggle, seek } =
     useAudioPlayer(source.audio_url);
 
-  const progress = durationMs > 0 ? positionMs / durationMs : 0;
-  const barWidth = useRef(0);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [segmentStartS, setSegmentStartS] = useState<number | null>(null);
+  const [segmentEndS, setSegmentEndS] = useState<number | null>(null);
 
   return (
     <View style={[styles.card, { backgroundColor: C.surface, borderColor: C.border }]}>
@@ -54,23 +65,63 @@ export function StemPlayer({ source, extractionId }: Props) {
         )}
       </View>
 
-      {/* Scrub bar */}
+      {/* Waveform with playback cursor + segment annotation */}
       {!isLoading && durationMs > 0 && (
-        <View style={styles.scrubRow}>
-          <Text style={[styles.timeText, { color: C.textMuted }]}>{formatMs(positionMs)}</Text>
-          <Pressable
-            style={[styles.scrubBg, { backgroundColor: C.border }]}
-            onLayout={(e) => { barWidth.current = e.nativeEvent.layout.width; }}
-            onPress={(e) => {
-              const pct = barWidth.current > 0 ? e.nativeEvent.locationX / barWidth.current : 0;
-              seek(pct * durationMs);
+        <>
+          <WaveformAnnotator
+            waveformUrl={source.waveform_url}
+            durationMs={durationMs}
+            positionMs={positionMs}
+            onSeek={seek}
+            selectionMode={selectionMode}
+            segmentStartS={segmentStartS}
+            segmentEndS={segmentEndS}
+            onSegmentChange={(s, e) => {
+              setSegmentStartS(s);
+              setSegmentEndS(e);
             }}
-          >
-            <View style={[styles.scrubFill, { backgroundColor: C.fuchsia, flex: progress }]} />
-            <View style={{ flex: 1 - progress }} />
-          </Pressable>
-          <Text style={[styles.timeText, { color: C.textMuted }]}>{formatMs(durationMs)}</Text>
-        </View>
+          />
+
+          {/* Selection controls row */}
+          <View style={styles.selectionRow}>
+            {segmentStartS != null && segmentEndS != null ? (
+              <>
+                <Text style={[styles.segmentLabel, { color: C.fuchsia }]}>
+                  {formatSec(segmentStartS)} – {formatSec(segmentEndS)}
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    setSegmentStartS(null);
+                    setSegmentEndS(null);
+                    setSelectionMode(false);
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={[styles.selectionAction, { color: C.textMuted }]}>Clear</Text>
+                </Pressable>
+              </>
+            ) : selectionMode ? (
+              <>
+                <Text style={[styles.selectionHint, { color: C.textMuted }]}>
+                  Drag to select a region
+                </Text>
+                <Pressable
+                  onPress={() => setSelectionMode(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={[styles.selectionAction, { color: C.textMuted }]}>Cancel</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable
+                onPress={() => setSelectionMode(true)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={[styles.selectionAction, { color: C.primary }]}>Select region</Text>
+              </Pressable>
+            )}
+          </View>
+        </>
       )}
 
       {error && <Text style={[styles.error, { color: C.error }]}>{error}</Text>}
@@ -80,7 +131,16 @@ export function StemPlayer({ source, extractionId }: Props) {
         onPress={() =>
           router.push({
             pathname: '/extraction/feedback',
-            params: { extractionId, label: source.label },
+            params: {
+              extractionId,
+              label: source.label,
+              ...(segmentStartS != null && segmentEndS != null
+                ? {
+                    segmentStart: String(segmentStartS),
+                    segmentEnd: String(segmentEndS),
+                  }
+                : {}),
+            },
           })
         }
       >
@@ -109,16 +169,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   playIcon: { fontSize: 18 },
-  scrubRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  scrubBg: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
+  selectionRow: {
     flexDirection: 'row',
-    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 20,
   },
-  scrubFill: { borderRadius: 2 },
-  timeText: { fontSize: 11, width: 36, textAlign: 'center' },
+  segmentLabel: { fontSize: 12, fontWeight: '600' },
+  selectionHint: { fontSize: 12 },
+  selectionAction: { fontSize: 12, fontWeight: '600' },
   error: { fontSize: 12 },
   feedbackButton: {
     alignSelf: 'flex-start',

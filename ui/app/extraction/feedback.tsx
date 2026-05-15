@@ -1,9 +1,15 @@
 /**
  * Feedback screen.
  *
- * Reached from ExtractionScreen with params: { extractionId, label }.
- * Submitting good/bad feedback optionally triggers a re-extraction
- * with a refined label.
+ * Reached from StemPlayer with params: { extractionId, label,
+ * segmentStart?, segmentEnd? }.
+ *
+ * When segmentStart/segmentEnd are present the feedback is scoped to that
+ * time range (displayed to the user and sent to the API).  Without them the
+ * feedback applies to the full stem.
+ *
+ * Submitting non-"good" feedback optionally triggers a re-extraction with a
+ * refined label.
  */
 
 import { router, useLocalSearchParams } from 'expo-router';
@@ -23,6 +29,12 @@ import { Theme } from '../../src/theme';
 
 type FeedbackType = 'good' | 'too_much' | 'too_little' | 'artifacts';
 
+function formatSec(s: number): string {
+  const mins = Math.floor(s / 60);
+  const secs = Math.floor(s % 60);
+  return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
 const FEEDBACK_OPTIONS: Array<{ type: FeedbackType; label: string; emoji: string }> = [
   { type: 'good', label: 'Sounds good', emoji: '✅' },
   { type: 'too_much', label: 'Too much bleed', emoji: '🔊' },
@@ -33,10 +45,17 @@ const FEEDBACK_OPTIONS: Array<{ type: FeedbackType; label: string; emoji: string
 export default function FeedbackScreen() {
   const { C } = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
-  const { extractionId, label } = useLocalSearchParams<{
+  const { extractionId, label, segmentStart, segmentEnd } = useLocalSearchParams<{
     extractionId: string;
     label: string;
+    segmentStart?: string;
+    segmentEnd?: string;
   }>();
+
+  // Route params are always strings; parse to numbers when present.
+  const segStartS = segmentStart != null ? parseFloat(segmentStart) : null;
+  const segEndS = segmentEnd != null ? parseFloat(segmentEnd) : null;
+  const hasSegment = segStartS != null && segEndS != null && !isNaN(segStartS) && !isNaN(segEndS);
 
   const [feedbackType, setFeedbackType] = useState<FeedbackType | null>(null);
   const [refinedLabel, setRefinedLabel] = useState('');
@@ -52,6 +71,9 @@ export default function FeedbackScreen() {
       const res = await extractionApi.feedback(extractionId, {
         feedback_type: feedbackType,
         segment_label: label,
+        ...(hasSegment
+          ? { segment_start_seconds: segStartS!, segment_end_seconds: segEndS! }
+          : {}),
         refined_label: refinedLabel.trim() || undefined,
         comment: comment.trim() || undefined,
       });
@@ -70,6 +92,12 @@ export default function FeedbackScreen() {
   return (
     <ScrollView style={{ backgroundColor: C.bg }} contentContainerStyle={s.scroll}>
       <Text style={s.heading}>Feedback for "{label}"</Text>
+
+      {hasSegment && (
+        <Text style={[s.segmentBadge, { color: C.fuchsia, backgroundColor: C.fuchsia + '18' }]}>
+          {formatSec(segStartS!)} – {formatSec(segEndS!)}
+        </Text>
+      )}
 
       <Text style={s.sectionTitle}>How did it sound?</Text>
       <View style={s.options}>
@@ -175,5 +203,13 @@ function makeStyles(C: Theme) {
     buttonText:     { color: '#FFF', fontSize: 16, fontWeight: '600' },
     cancelButton:   { alignItems: 'center', paddingVertical: 12 },
     cancelText:     { color: C.textMuted, fontSize: 14 },
+    segmentBadge: {
+      alignSelf: 'flex-start',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 6,
+      fontSize: 13,
+      fontWeight: '600',
+    },
   });
 }
