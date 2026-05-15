@@ -253,3 +253,28 @@ On web, navigating to `/extraction/<id>` via a direct URL (e.g., copy-pasted or 
 **Reversibility:** Easy — removing the `topBar` and `backButton` styles and the `handleBack` handler reverts to the prior state.
 
 **PM/Tech Lead review required:** No — this is a cross-platform navigation correctness fix.
+
+---
+**Decision ID:** DEC-012
+**Agent:** Frontend Engineer
+**Task ID:** first-launch-modal-returning-device
+**Timestamp:** 2026-05-14T00:00:00Z
+
+**Context:**
+The `FirstLaunchModal` previously had two display states keyed on the `isNewUser` prop: a "new user" branch (account-creation confirmation) and a catch-all `false` branch (generic "Get started" copy). A PM bug report identified that a returning user — one whose device was already registered in a prior session but whose `first_launch_seen` storage flag is absent (e.g. after app reinstall or storage clear) — sees the generic "Get started" copy and then discovers they are already logged into an existing account with no explanation. This creates confusion: the user does not know their device was recognised.
+
+The modal needed a third distinguishable state within the `isNewUser === false` branch to differentiate "returning device, account auto-restored" from "genuine first launch, registration pending." The challenge is that the `isNewUser` prop alone cannot make this distinction — it is `false` in both cases (the auth hook sets it `false` when loading from existing storage, which happens before the modal's `useEffect` runs for the storage-check path, and it is also `false` on a genuine first launch before registration completes).
+
+**Options considered:**
+1. Check for a stored session token (`'session_token'` key, same key used by `src/store/auth.ts`) inside the modal's `useEffect`, alongside the existing `first_launch_seen` check. If a token is present when the modal would otherwise show, the user is a returning device. This check is self-contained within the component and requires no prop changes or hook modifications.
+2. Add a third `variant` prop to `FirstLaunchModal` (e.g. `variant: 'new-user' | 'returning' | 'first-launch'`) and resolve the variant in the calling `_layout.tsx` — moves the discrimination logic to the call site. Requires the caller to also read the session token from storage, adding async logic to `_layout.tsx` that is not currently there.
+
+**Decision:** Option 1 — check for `'session_token'` in storage within the modal's `useEffect`, using `Promise.all` to read both `first_launch_seen` and `session_token` in parallel. If `first_launch_seen` is absent and a session token exists, render the "Welcome back" variant. If `first_launch_seen` is absent and no token exists, render the original "Get started" variant. The internal `variant` state (`'new-user' | 'returning-device' | 'first-launch'`) replaces the `isNewUser` boolean as the rendering discriminator, while the `isNewUser` prop interface is preserved unchanged.
+
+**Rationale:** Option 1 keeps the discrimination logic co-located with the modal's own storage reads. The modal already reads `first_launch_seen` from storage; reading `session_token` in the same `Promise.all` adds no additional async round-trips. Adding a new prop (Option 2) would expose an implementation detail (the three-way split) through the component's public interface and require the caller to perform an async storage read it currently does not need to do. The `'session_token'` key is a stable constant defined in `src/store/auth.ts`; it is duplicated as a local constant (`SESSION_TOKEN_KEY`) in the modal — the same acceptable duplication pattern already used for `DEVICE_ID_KEY` in `settings.tsx` (DEC-010).
+
+**Trade-offs accepted:** If the session token key in `src/store/auth.ts` is ever renamed, `SESSION_TOKEN_KEY` in `FirstLaunchModal.tsx` must also be updated. This duplication is low-risk: the key is a stable, rarely-changed constant, and a mismatch would cause the "returning device" variant never to render (falling back to "Get started") — a degraded but not broken experience.
+
+**Reversibility:** Easy — reverting to the two-branch `isNewUser` boolean condition removes the storage check and the `variant` state.
+
+**PM/Tech Lead review required:** Yes — the new copy ("Welcome back", "We recognised your device and restored your account automatically. No password needed — your account is always tied to this device.") is user-facing and should be reviewed before shipping.

@@ -3,7 +3,7 @@ session_id: ux-improvements-3issues
 last_updated: 2026-05-14T00:00:00Z
 status: complete
 
-current_task: All three UX issues complete — FirstLaunchModal copy, Settings device section, extraction back nav
+current_task: first-launch-modal returning-device third state — complete
 
 tasks:
   auth-surface-registration:
@@ -37,5 +37,13 @@ tasks:
     completed_at: 2026-05-14T00:00:00Z
     output: ui/app/extraction/[id].tsx
     notes: router.canGoBack() -> router.back() else router.replace('/(tabs)/history'). DEC-011 logged. 33 tests pass.
+
+  first-launch-modal-returning-device:
+    description: Add third modal variant for returning devices — session token present but first_launch_seen absent — showing "Welcome back" copy
+    status: complete
+    started_at: 2026-05-14T00:00:00Z
+    completed_at: 2026-05-14T00:00:00Z
+    output: ui/src/components/FirstLaunchModal.tsx
+    notes: Replaced boolean isNewUser render branch with ModalVariant state. SESSION_TOKEN_KEY constant added. Promise.all reads seen + token in parallel. DEC-012 logged. 33 tests pass.
 
 blockers: []

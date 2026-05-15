@@ -279,3 +279,37 @@ OBS-002: The staging environment (FLASK_ENV=staging) uses the same CORS origin l
 
 **Issues flagged:**
 - None.
+
+---
+## first-launch-modal-returning-device | 2026-05-14
+
+**Agent:** Frontend Engineer
+**Task ID:** first-launch-modal-returning-device
+**Status:** Completed
+
+**Task description:** Add a "Welcome back" third state to `FirstLaunchModal` for returning devices (session token present but `first_launch_seen` absent), distinct from the existing "Account created" (isNewUser=true) and "Get started" (genuine first launch) states.
+
+**Inputs received:**
+- `ui/src/components/FirstLaunchModal.tsx`
+- `ui/src/storage/platform.ts`
+- `ui/src/store/auth.ts` (to confirm session token storage key)
+- `ui/src/hooks/useAuth.ts` (to confirm storage key usage)
+
+**Outputs produced:**
+- `ui/src/components/FirstLaunchModal.tsx` — replaced `isNewUser` boolean render branch with a three-way `ModalVariant` state (`'new-user' | 'returning-device' | 'first-launch'`); added `SESSION_TOKEN_KEY` constant; updated `useEffect` to read `session_token` alongside `first_launch_seen` in `Promise.all`; "returning-device" variant shows "Welcome back" heading, device-recognition explanation, and "Continue" CTA.
+
+**Self-checks applied:**
+- Security: session token is checked for presence only (truthy/falsy) — the value is never read, logged, rendered, or stored via a different mechanism. No credentials exposed in the UI. Passed.
+- Accessibility: all three variant branches have `accessibilityRole="button"` and `accessibilityLabel` matching their CTA text; `AccessibilityInfo.announceForAccessibility` updated for the new variant. `accessibilityViewIsModal` and `onRequestClose` retained. Passed.
+- Performance: `Promise.all` parallelises the two storage reads — no sequential waterfall introduced. No new renders beyond the variant state change. Passed.
+- Design accuracy (architectural fidelity): `ModalVariant` is an internal implementation type not exposed in the prop interface; `isNewUser` prop interface is unchanged; component name `FirstLaunchModal` unchanged; no domain-term violations. Passed.
+
+**Decisions made:**
+- DEC-012: Storage-check approach for distinguishing returning-device from genuine first-launch within the `isNewUser === false` branch. See decisions.md.
+
+**Assumptions made:**
+- The `'session_token'` storage key used in `src/store/auth.ts` (`KEYS.sessionToken`) is stable and matches `SESSION_TOKEN_KEY` in the modal. Confirmed by reading `src/store/auth.ts`.
+- `Promise.all` ordering (`[seen, sessionToken]`) matches destructuring order in the `.then` callback. Verified in implementation.
+
+**Issues flagged:**
+- None.

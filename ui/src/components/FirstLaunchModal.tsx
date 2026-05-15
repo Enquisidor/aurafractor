@@ -6,19 +6,33 @@
  * they are ready to start. It is dismissed permanently on confirmation;
  * the seen flag is persisted via platform storage.
  *
- * When `isNewUser` is true (set from the auth API's `is_new_user` response
- * field), the modal presents the moment as an active account-creation
- * confirmation: the heading is "Account created", and copy explains that
- * the account is tied to this device. The CTA reads "Start using Aurafractor".
+ * Three display states, determined by the `isNewUser` prop and the
+ * presence of a stored session token:
  *
- * When `isNewUser` is false but `first_launch_seen` has not been set (e.g.
- * a returning user who cleared storage), the modal shows a neutral welcome
- * tone with the original copy and "Get started" CTA.
+ * 1. isNewUser === true
+ *    The auth API confirmed a brand-new first-time registration.
+ *    Heading: "Account created"
+ *    CTA: "Start using Aurafractor"
+ *
+ * 2. isNewUser === false AND a session token exists in storage
+ *    A returning device: the device was already registered in a prior
+ *    session and the token is still present. The user cleared
+ *    `first_launch_seen` (e.g. reinstalled the app) but their account
+ *    was auto-restored. Heading: "Welcome back"
+ *    CTA: "Continue"
+ *
+ * 3. isNewUser === false AND no session token in storage
+ *    Genuine first launch with registration still pending (or in progress).
+ *    Original neutral welcome copy. CTA: "Get started"
  *
  * Design gap (logged as DEC-006): no visual design reference was provided
  * for this screen. The layout uses the project's existing design tokens
  * and follows the neon-pastel theme. A designer pass is required to replace
  * this with a finalized design.
+ *
+ * Decision (logged as DEC-012): storage-check approach for distinguishing
+ * returning-device from genuine first-launch within the isNewUser === false
+ * branch — see decision log for full rationale.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -34,6 +48,9 @@ import { useTheme } from '../contexts/ThemeContext';
 import { storage } from '../storage/platform';
 
 const SEEN_KEY = 'first_launch_seen';
+const SESSION_TOKEN_KEY = 'session_token';
+
+type ModalVariant = 'new-user' | 'returning-device' | 'first-launch';
 
 interface FirstLaunchModalProps {
   /**
@@ -48,26 +65,45 @@ interface FirstLaunchModalProps {
 export function FirstLaunchModal({ isNewUser = false }: FirstLaunchModalProps) {
   const { C } = useTheme();
   const [visible, setVisible] = useState(false);
+  const [variant, setVariant] = useState<ModalVariant>('first-launch');
 
   useEffect(() => {
     if (isNewUser) {
       // Backend confirmed this is a new registration — show immediately
       // without waiting for the storage check (the storage write on dismiss
       // will prevent it showing again on subsequent launches).
+      setVariant('new-user');
       setVisible(true);
       return;
     }
-    storage.getItem(SEEN_KEY).then((seen) => {
-      if (!seen) setVisible(true);
+    // For isNewUser === false, check both the seen flag and whether a session
+    // token already exists. A session token present means the device was
+    // registered in a prior session and the account has been auto-restored —
+    // the user is a returning device, not a genuine first-time visitor.
+    Promise.all([
+      storage.getItem(SEEN_KEY),
+      storage.getItem(SESSION_TOKEN_KEY),
+    ]).then(([seen, sessionToken]) => {
+      if (seen) return; // Already shown — do not re-show.
+      const resolvedVariant: ModalVariant = sessionToken
+        ? 'returning-device'
+        : 'first-launch';
+      setVariant(resolvedVariant);
+      setVisible(true);
     });
   }, [isNewUser]);
 
   const handleStart = async () => {
     await storage.setItem(SEEN_KEY, '1');
     setVisible(false);
-    const announcement = isNewUser
-      ? 'Account created. Welcome to Aurafractor.'
-      : 'Welcome to Aurafractor. Let\'s get started.';
+    let announcement: string;
+    if (variant === 'new-user') {
+      announcement = 'Account created. Welcome to Aurafractor.';
+    } else if (variant === 'returning-device') {
+      announcement = 'Welcome back. Your account has been restored.';
+    } else {
+      announcement = "Welcome to Aurafractor. Let's get started.";
+    }
     AccessibilityInfo.announceForAccessibility(announcement);
   };
 
@@ -84,7 +120,7 @@ export function FirstLaunchModal({ isNewUser = false }: FirstLaunchModalProps) {
     >
       <View style={styles.backdrop}>
         <View style={[styles.card, { backgroundColor: C.surface, borderColor: C.border }]}>
-          {isNewUser ? (
+          {variant === 'new-user' ? (
             <>
               <Text style={[styles.title, { color: C.textPrimary }]}>
                 Account created
@@ -107,6 +143,28 @@ export function FirstLaunchModal({ isNewUser = false }: FirstLaunchModalProps) {
                 accessibilityLabel="Start using Aurafractor"
               >
                 <Text style={styles.ctaLabel}>Start using Aurafractor</Text>
+              </Pressable>
+            </>
+          ) : variant === 'returning-device' ? (
+            <>
+              <Text style={[styles.title, { color: C.textPrimary }]}>
+                Welcome back
+              </Text>
+              <Text style={[styles.body, { color: C.textSecondary }]}>
+                We recognised your device and restored your account
+                automatically. No password needed — your account is always
+                tied to this device.
+              </Text>
+              <Pressable
+                onPress={handleStart}
+                style={({ pressed }) => [
+                  styles.cta,
+                  { backgroundColor: pressed ? C.primaryLight : C.primary },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Continue to Aurafractor"
+              >
+                <Text style={styles.ctaLabel}>Continue</Text>
               </Pressable>
             </>
           ) : (
