@@ -29,6 +29,8 @@ allowed-tools: Read Write
 
 4. **Append the entry.** Write the complete activity entry. Every required field must be present — do not write "N/A" for fields that have a defined "None" placeholder.
 
+5. **Stop.** The log entry is the last thing you write. Do not re-read it to verify. Do not look for other logs to update. Return control to the orchestrator and wait.
+
 ## Rules
 
 - Never modify or delete existing entries. The activity log is append-only.

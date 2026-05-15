@@ -67,7 +67,7 @@ Before running any pipeline, confirm:
 
    > I was started as a fresh agent, but `.scratch/session-state.yml` shows this session is already in progress at phase **[current_phase]** with the following artifacts produced: **[list artifacts from session state]**. I have no memory of the prior work, so I cannot safely continue — I would duplicate completed phases or lose context.
    >
-   > **To continue this session:** use `SendMessage` to the original orchestrator agent. Its agent ID should be visible in your conversation history as the spawned subagent. Do not re-invoke me with the `Agent` tool — that always starts a fresh agent with no prior context.
+   > **To continue this session:** run `/resume-agents` — it will find the original orchestrator's runtime ID and forward your message via `SendMessage`. Do not re-invoke me with the `Agent` tool — that always starts a fresh agent with no prior context.
    >
    > **To start a new session from scratch:** delete `.scratch/session-state.yml` and re-invoke me. Be aware this discards the prior session's progress.
 

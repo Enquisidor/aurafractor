@@ -1,9 +1,11 @@
 import { configureStore } from '@reduxjs/toolkit';
+import extractionsReducer from './extractionsSlice';
 import uploadQueueReducer from './uploadQueueSlice';
 
 export const store = configureStore({
   reducer: {
     uploadQueue: uploadQueueReducer,
+    extractions: extractionsReducer,
   },
 });
 

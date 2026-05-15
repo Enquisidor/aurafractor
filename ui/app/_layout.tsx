@@ -12,14 +12,18 @@ import { FirstLaunchModal } from '../src/components/FirstLaunchModal';
 import { ThemeProvider, useTheme } from '../src/contexts/ThemeContext';
 import { useAuth } from '../src/hooks/useAuth';
 import { store } from '../src/store/store';
+import { hydrateExtractions } from '../src/store/extractionsSlice';
 import { hydrateUploadQueue, syncUploadQueue } from '../src/store/uploadQueueSlice';
 
 function RootLayoutInner() {
   const { loading, error, isNewUser } = useAuth();
   const { C, isDark } = useTheme();
 
-  // Hydrate the upload queue from storage once on mount
-  useEffect(() => { store.dispatch(hydrateUploadQueue()); }, []);
+  // Hydrate the upload queue and extractions cache from storage once on mount
+  useEffect(() => {
+    store.dispatch(hydrateUploadQueue());
+    store.dispatch(hydrateExtractions());
+  }, []);
 
   // Sync (retry queued uploads) whenever the backend becomes reachable
   useEffect(() => {

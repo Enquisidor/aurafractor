@@ -1,5 +1,9 @@
 /**
  * Hook: polls extraction status every 5 s until completed or failed.
+ * After each successful poll, the result is upserted into the Redux
+ * extractions cache. The calling screen (which is wrapped in a Redux
+ * Provider) handles the dispatch via the returned `data` value — each
+ * new non-null data value should be dispatched as upsertExtraction.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';

@@ -48,6 +48,8 @@ allowed-tools: Read Write
 
 6. **Report the artifact path** to the orchestrator or calling context.
 
+7. **Stop.** Your task is complete. Do not re-read the artifact to verify it. Do not scan for additional issues. Do not check other files. Return control to the orchestrator and wait.
+
 ## Rules
 
 - The completion artifact is not a substitute for the activity log entry. Both must be written.
