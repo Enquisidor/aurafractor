@@ -240,7 +240,7 @@ export default function ExtractionScreen() {
 
       {showProgress && (
         <ExtractionProgressBar
-          status={data.status}
+          status={data.status as 'queued' | 'processing'}
           estimatedTimeSeconds={data.estimated_time_seconds}
           startedAt={data.started_at}
           queuePosition={data.queue_position}
