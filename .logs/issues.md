@@ -87,3 +87,31 @@ This explains why the Flask CORS configuration (which is correctly written) prod
 
 **Auto-fix attempted:** Yes
 **Auto-fix outcome:** Files changed. Requires: (a) `terraform apply` to update the Cloud Run service definition, which triggers a new revision with `container_port=8080`; (b) a new backend Docker image build and Cloud Run deploy so the container CMD also uses `$PORT`. The terraform apply alone may be sufficient if the currently deployed image already guesses 8080 — but the image should be rebuilt to remove the ambiguity.
+
+---
+**Issue ID:** ISS-004
+**Timestamp:** 2026-05-14T00:00:00Z
+**Reported by:** Frontend Engineer (design accuracy self-check, architectural fidelity)
+**Task/Session ID:** extractions-cache-and-rerun-guard
+**Status:** Open
+
+**Severity:** P2
+**Category:** Spec ambiguity
+**Title:** Re-run extraction API call uses empty sources array — spec does not define backend behaviour for zero sources.
+
+**Description:**
+The re-run button in `extraction/[id].tsx` calls `extraction.extract(track_id, [])` with an empty sources array when the user confirms the re-run dialog. The `POST /extraction/extract` API contract (from `src/api/client.ts`) defines `sources: ExtractionSource[]` but does not specify a minimum length or the expected backend behaviour when sources is empty. A failed extraction has no original source list in the `ExtractionResponse`, so the re-run cannot reconstruct the original label set.
+
+If the backend rejects an empty sources array (e.g., returns 422), the error will surface in the `rerunError` state and the user will see a message. This is not a crash, but it does leave the user in a failed state with no actionable next step other than returning to the upload flow.
+
+**Location:** `ui/app/extraction/[id].tsx` — `handleRerun` callback, line with `extractionApi.extract(data.track_id, [])`.
+
+**Spec reference:** `.spec/api-contracts.md` (if it exists — not confirmed in this session). `src/api/client.ts` `extract` method definition.
+
+**Suggested fix:**
+Three options to escalate to the PM/Architect:
+1. Define the backend behaviour for zero sources (e.g., "use original source list") and document it in the API contract — enables the current frontend implementation to work correctly
+2. Include the original `sources` list in the `ExtractionResponse` so the frontend can re-use it without changes to the backend
+3. Change the re-run UX to navigate the user back to the label-selection step rather than re-running immediately — eliminates the empty-sources problem but changes the UX from in-place to multi-step
+
+**Auto-fix attempted:** No — awaiting PM/Architect decision on which option to pursue.

@@ -6,6 +6,7 @@ Coordinates: upload → NLP → credit check → DB creation → Cloud Tasks que
 
 import logging
 import os
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
 from database.models import (
@@ -14,6 +15,8 @@ from database.models import (
     get_extraction,
     get_extraction_with_result,
     update_extraction_status,
+    cancel_extraction,
+    mark_extraction_timed_out,
     create_extraction_result,
     count_active_extractions,
 )
@@ -24,6 +27,15 @@ from services.tasks import enqueue_extraction_job
 logger = logging.getLogger(__name__)
 
 MAX_CONCURRENT_EXTRACTIONS = int(os.getenv('MAX_CONCURRENT_EXTRACTIONS', '4'))
+
+# Extractions stuck in 'processing' for longer than this threshold are treated as timed out.
+PROCESSING_TIMEOUT_MINUTES = int(os.getenv('EXTRACTION_TIMEOUT_MINUTES', '15'))
+
+# Statuses that cannot be cancelled.
+_TERMINAL_STATUSES = frozenset({'completed', 'failed'})
+
+# Cancellable statuses.
+_CANCELLABLE_STATUSES = frozenset({'queued', 'processing'})
 
 
 def process_sources_with_nlp(sources: List[Dict]) -> tuple:
@@ -174,13 +186,77 @@ def initiate_extraction(
         raise ValueError(f'Extraction failed: {exc}') from exc
 
 
+def cancel_extraction_for_user(extraction_id: str, user_id: str) -> Dict:
+    """Cancel an extraction owned by the given user.
+
+    Raises:
+        ValueError: If the extraction is not found.
+        PermissionError: If the extraction does not belong to the user.
+        LookupError: If the extraction is in a non-cancellable status (caller maps to 409).
+    """
+    row = get_extraction(extraction_id)
+    if row is None:
+        raise ValueError(f'Extraction {extraction_id} not found')
+
+    if str(row['user_id']) != user_id:
+        raise PermissionError('Extraction does not belong to this user')
+
+    current_status = row['status']
+    if current_status not in _CANCELLABLE_STATUSES:
+        raise LookupError(
+            f'Extraction cannot be cancelled: status is {current_status!r}. '
+            'Only queued or processing extractions can be cancelled.'
+        )
+
+    # Attempt atomic cancel — the WHERE clause guards against a concurrent terminal transition.
+    updated = cancel_extraction(extraction_id)
+    if updated is None:
+        # The worker completed or failed the extraction between our status check and the UPDATE.
+        # Re-fetch to return the current state and surface the conflict to the caller.
+        row = get_extraction(extraction_id)
+        if row is not None:
+            raise LookupError(
+                f'Extraction cannot be cancelled: status is {row["status"]!r}. '
+                'Only queued or processing extractions can be cancelled.'
+            )
+        raise ValueError(f'Extraction {extraction_id} not found after cancel attempt')
+
+    # Refund credits for the cancelled extraction.
+    credit_cost = updated.get('credit_cost', 0)
+    try:
+        refund_for_failed_extraction(user_id, credit_cost, extraction_id)
+    except Exception as exc:
+        logger.error(
+            'Credit refund failed after cancel: extraction_id=%s user_id=%s error=%s',
+            extraction_id, user_id, exc,
+        )
+
+    logger.info('Extraction cancelled: extraction_id=%s user_id=%s', extraction_id, user_id)
+
+    completed_at = updated.get('completed_at')
+    return {
+        'extraction_id': str(updated['extraction_id']),
+        'status': updated['status'],
+        'completed_at': completed_at.isoformat() if completed_at else None,
+    }
+
+
 def get_extraction_status(extraction_id: str, user_id: str) -> Dict:
-    """Return the current status of an extraction."""
+    """Return the current status of an extraction.
+
+    For extractions in 'processing' status, applies a lazy timeout check:
+    if the extraction has been processing for longer than PROCESSING_TIMEOUT_MINUTES,
+    it is marked as failed with failure_reason='timeout' before the response is built.
+    """
     row = get_extraction_with_result(extraction_id)
     if row is None:
         raise ValueError(f'Extraction {extraction_id} not found')
     if str(row['user_id']) != user_id:
         raise ValueError('Extraction does not belong to this user')
+
+    # Lazy timeout: check for stuck processing extractions on each poll.
+    if row['status'] == 'processing':
+        row = _apply_timeout_if_stuck(row)
 
     response: Dict[str, Any] = {
         'extraction_id': str(row['extraction_id']),
@@ -200,6 +276,51 @@ def get_extraction_status(extraction_id: str, user_id: str) -> Dict:
     return response
 
 
+def _apply_timeout_if_stuck(row: Dict) -> Dict:
+    """Check whether a processing extraction has exceeded the timeout threshold.
+
+    If so, mark it failed in the DB (failure_reason='timeout') and update the row
+    dict in place. Returns the (possibly updated) row.
+    """
+    now = datetime.now(timezone.utc)
+    threshold = timedelta(minutes=PROCESSING_TIMEOUT_MINUTES)
+
+    # Prefer started_at; fall back to created_at if started_at is null.
+    reference_ts = row.get('started_at') or row.get('created_at')
+    if reference_ts is None:
+        return row
+
+    # Ensure reference_ts is timezone-aware for comparison.
+    if reference_ts.tzinfo is None:
+        reference_ts = reference_ts.replace(tzinfo=timezone.utc)
+
+    if (now - reference_ts) > threshold:
+        extraction_id = str(row['extraction_id'])
+        updated = mark_extraction_timed_out(extraction_id)
+        if updated is not None:
+            logger.warning(
+                'Extraction timed out during poll: extraction_id=%s started_at=%s',
+                extraction_id, row.get('started_at'),
+            )
+            # Merge updated fields back; preserve joined result columns.
+            row = dict(row)
+            row.update(updated)
+
+        # Refund credits for the timed-out extraction.
+        if updated is not None:
+            user_id = str(updated.get('user_id', ''))
+            credit_cost = updated.get('credit_cost', 0)
+            try:
+                refund_for_failed_extraction(user_id, credit_cost, extraction_id)
+            except Exception as exc:
+                logger.error(
+                    'Credit refund failed after timeout: extraction_id=%s error=%s',
+                    extraction_id, exc,
+                )
+
+    return row
+
+
 def handle_extraction_webhook(
     extraction_id: str,
     success: bool,
@@ -209,8 +330,24 @@ def handle_extraction_webhook(
 ) -> None:
     """Handle callback from extraction worker.
 
-    Updates DB status and stores results.
+    Checks current extraction status before writing results — if the extraction
+    has already been cancelled or timed out (status='failed'), the worker callback
+    is a no-op to avoid overwriting the terminal state.
+
+    Updates DB status and stores results on success.
     """
+    current = get_extraction(extraction_id)
+    if current is None:
+        logger.warning('Worker callback for unknown extraction_id=%s — ignoring', extraction_id)
+        return
+
+    if current['status'] not in ('queued', 'processing'):
+        logger.info(
+            'Worker callback for extraction_id=%s ignored: status is already %r',
+            extraction_id, current['status'],
+        )
+        return
+
     if success and sources is not None:
         create_extraction_result(extraction_id, sources)
         update_extraction_status(

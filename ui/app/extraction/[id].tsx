@@ -13,6 +13,16 @@
  * Re-run guard: any action that would re-run an extraction (consuming credits)
  * requires explicit user confirmation via Alert.alert before proceeding.
  *
+ * Cancel: when status is queued or processing, a Cancel button is shown.
+ *   - When isHung is true, the button appears below the hung-state card
+ *     (which already contains the Dismiss button), rendered as a standalone
+ *     destructive button — same position as the non-hung case.
+ *   - When not yet hung, it appears as a standalone button below the
+ *     progress bar.
+ *   An Alert.alert confirmation is required before the cancel request is
+ *   sent. On success the screen navigates back. On failure (e.g. 409 —
+ *   extraction already in a terminal state) an error Alert is shown.
+ *
  * Includes an explicit back button that works cross-platform:
  * - If router.canGoBack() is true (native stack or web navigation that has
  *   history), calls router.back().
@@ -28,6 +38,9 @@
  *   falsely reaches 100% before the backend confirms completion. When
  *   `estimated_time_seconds` is absent, shows an indeterminate animated bar
  *   with no percentage label.
+ * - `processing` (hung): when processing exceeds 10 minutes, replaces the
+ *   progress bar with a "taking longer than expected" message and a Dismiss
+ *   button. Polling continues — the backend may eventually complete.
  * - `completed` / `failed`: progress display is hidden; results or error takes over.
  */
 
@@ -67,7 +80,7 @@ export default function ExtractionScreen() {
   const cachedIsTerminal = cached != null && TERMINAL_STATUSES.has(cached.status);
 
   // Only poll when we do not already have a terminal cached result.
-  const { data: polledData, error } = useExtractionPoll(
+  const { data: polledData, error, isHung } = useExtractionPoll(
     id != null && !cachedIsTerminal ? id : null,
   );
 
@@ -83,6 +96,8 @@ export default function ExtractionScreen() {
 
   const [rerunning, setRerunning] = useState(false);
   const [rerunError, setRerunError] = useState<string | null>(null);
+
+  const [cancelling, setCancelling] = useState(false);
 
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -143,6 +158,44 @@ export default function ExtractionScreen() {
     );
   }, [data, dispatch]);
 
+  /**
+   * Cancel a queued or processing extraction.
+   * Requires explicit user confirmation because the action is irreversible
+   * and credits are not refunded.
+   *
+   * On confirmation, calls extraction.cancel(extractionId). On success,
+   * navigates back. On failure (e.g. 409 — extraction already terminal),
+   * shows an error Alert so the user understands why the cancel did not work.
+   */
+  const handleCancel = useCallback(() => {
+    if (!id) return;
+
+    Alert.alert(
+      'Cancel extraction?',
+      'This will stop the extraction. Credits will not be refunded.',
+      [
+        { text: 'Keep running', style: 'cancel' },
+        {
+          text: 'Cancel extraction',
+          style: 'destructive',
+          onPress: async () => {
+            setCancelling(true);
+            try {
+              await extractionApi.cancel(id);
+              handleBack();
+            } catch (e) {
+              setCancelling(false);
+              Alert.alert(
+                'Could not cancel',
+                e instanceof Error ? e.message : 'Cancel failed',
+              );
+            }
+          },
+        },
+      ],
+    );
+  }, [id, handleBack]);
+
   if (error) return <ErrorView message={error} />;
 
   if (!data) {
@@ -156,6 +209,9 @@ export default function ExtractionScreen() {
 
   const isTerminal = data.status === 'completed' || data.status === 'failed';
   const showProgress = data.status === 'queued' || data.status === 'processing';
+  // Cancellable while the extraction is still in-flight (queued or processing,
+  // which also covers the hung sub-state).
+  const cancellable = data.status === 'queued' || data.status === 'processing';
 
   return (
     <ScrollView style={{ backgroundColor: C.bg }} contentContainerStyle={s.scroll}>
@@ -188,7 +244,30 @@ export default function ExtractionScreen() {
           estimatedTimeSeconds={data.estimated_time_seconds}
           startedAt={data.started_at}
           queuePosition={data.queue_position}
+          isHung={isHung}
         />
+      )}
+
+      {/* Cancel button — shown for any in-flight extraction (queued or
+          processing, including the hung sub-state). Placed directly below
+          ExtractionProgressBar so it is adjacent to the hung-state card when
+          isHung is true, and adjacent to the progress bar when not yet hung.
+          The Dismiss button in the hung-state card (inside ExtractionProgressBar)
+          navigates back; this button cancels the extraction on the backend. */}
+      {cancellable && (
+        <Pressable
+          style={[s.cancelButton, cancelling && s.cancelButtonDisabled]}
+          onPress={handleCancel}
+          disabled={cancelling}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel extraction"
+        >
+          {cancelling ? (
+            <ActivityIndicator color={C.error} />
+          ) : (
+            <Text style={[s.cancelButtonText, { color: C.error }]}>Cancel extraction</Text>
+          )}
+        </Pressable>
       )}
 
       {!isTerminal && !showProgress && (
@@ -295,5 +374,14 @@ function makeStyles(C: Theme) {
     rerunButtonDisabled: { opacity: 0.5 },
     rerunButtonText: { color: '#FFF', fontSize: 15, fontWeight: '600' },
     rerunError: { color: C.error, fontSize: 13, textAlign: 'center' },
+    cancelButton: {
+      paddingVertical: 12,
+      borderRadius: 12,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: C.error,
+    },
+    cancelButtonDisabled: { opacity: 0.5 },
+    cancelButtonText: { fontSize: 15, fontWeight: '600' },
   });
 }

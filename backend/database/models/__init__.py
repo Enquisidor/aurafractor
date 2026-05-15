@@ -36,6 +36,8 @@ from database.models.extractions import (
     get_extraction,
     get_extraction_with_result,
     update_extraction_status,
+    cancel_extraction,
+    mark_extraction_timed_out,
     count_active_extractions,
     create_extraction_result,
 )
@@ -72,7 +74,8 @@ __all__ = [
     'create_track', 'get_track', 'list_user_tracks', 'soft_delete_track',
     # extractions
     'create_extraction', 'get_extraction', 'get_extraction_with_result',
-    'update_extraction_status', 'count_active_extractions', 'create_extraction_result',
+    'update_extraction_status', 'cancel_extraction', 'mark_extraction_timed_out',
+    'count_active_extractions', 'create_extraction_result',
     # feedback
     'create_feedback', 'link_feedback_reextraction',
     # credits

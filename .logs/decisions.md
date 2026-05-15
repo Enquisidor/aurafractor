@@ -278,3 +278,120 @@ The modal needed a third distinguishable state within the `isNewUser === false` 
 **Reversibility:** Easy — reverting to the two-branch `isNewUser` boolean condition removes the storage check and the `variant` state.
 
 **PM/Tech Lead review required:** Yes — the new copy ("Welcome back", "We recognised your device and restored your account automatically. No password needed — your account is always tied to this device.") is user-facing and should be reviewed before shipping.
+
+---
+**Decision ID:** DEC-013
+**Agent:** Frontend Engineer
+**Task ID:** extractions-cache-and-rerun-guard
+**Timestamp:** 2026-05-14T00:00:00Z
+
+**Context:**
+The new `extractionsSlice` requires a storage key under which the extractions map is persisted to platform storage. The uploadQueueSlice uses `'upload_queue'`. A consistent naming convention is needed for the new key.
+
+**Options considered:**
+1. Use `'extractions_cache'` — describes the purpose (a cache of ExtractionResponse objects) and follows the same noun_noun pattern as `'upload_queue'`
+2. Use `'extractions'` — shorter but ambiguous; could be confused with a canonical source of record rather than a client-side cache
+
+**Decision:** Option 1 — storage key `'extractions_cache'`.
+
+**Rationale:** The `_cache` suffix communicates that this is a local performance optimisation rather than an authoritative data source. The backend is the source of truth; the cache is advisory. This distinction matters for future developers deciding how to handle stale data.
+
+**Trade-offs accepted:** If the cache key ever needs to change (e.g. schema migration), all existing cached data will be silently ignored (key won't match). This is acceptable — the cache is re-built from polling.
+
+**Reversibility:** Trivial — change the `PERSIST_KEY` constant in `extractionsSlice.ts`.
+
+**PM/Tech Lead review required:** No.
+
+---
+**Decision ID:** DEC-014
+**Agent:** Frontend Engineer
+**Task ID:** extractions-cache-and-rerun-guard
+**Timestamp:** 2026-05-14T00:00:00Z
+
+**Context:**
+The `useExtractionPoll` hook needed to dispatch `upsertExtraction` after each successful poll so the Redux store stays current. Two implementation approaches were available: (1) add `useDispatch` directly inside the hook, or (2) keep the hook Redux-free and have the calling screen dispatch the poll result.
+
+**Options considered:**
+1. Add `useDispatch` inside `useExtractionPoll` — the hook becomes the single responsible unit for both fetching and storing
+2. Return `data` from the hook unchanged; the calling screen (ExtractionScreen) dispatches `upsertExtraction` in a `useEffect` watching `polledData` — the hook stays a pure data-fetching primitive
+
+**Decision:** Option 2 — keep `useExtractionPoll` Redux-free; dispatch from the screen.
+
+**Rationale:** Option 1 was initially implemented but caused the existing `hooks.useExtraction.test.ts` tests to fail because the test renders the hook without a Redux Provider. Since tests cannot be modified, the hook must be usable without a Provider context. Option 2 is also the architecturally cleaner separation: the hook is a reusable fetching primitive; Redux side effects belong in the component or screen layer that is always wrapped in a Provider.
+
+**Trade-offs accepted:** Any future component that uses `useExtractionPoll` must remember to also dispatch `upsertExtraction` if it wants the result cached. This is a documentation and convention concern, not a correctness risk — the worst case is a cache miss on next mount.
+
+**Reversibility:** Easy — adding `useDispatch` back to the hook (with a provider requirement) reverts to Option 1.
+
+**PM/Tech Lead review required:** No.
+
+---
+**Decision ID:** DEC-015
+**Agent:** Frontend Engineer
+**Task ID:** extractions-cache-and-rerun-guard
+**Timestamp:** 2026-05-14T00:00:00Z
+
+**Context:**
+The `hydrateExtractions` thunk needs to be called at app startup alongside `hydrateUploadQueue`. The correct call site is `RootLayoutInner` in `app/_layout.tsx`, which already dispatches `hydrateUploadQueue` in a `useEffect` on mount.
+
+**Options considered:**
+1. Dispatch `hydrateExtractions` in the same `useEffect` as `hydrateUploadQueue` in `_layout.tsx` — co-locates all startup hydration in one effect; both dispatches fire simultaneously (Promise.all semantics via independent async thunks)
+2. Create a dedicated `useHydrateStore` hook that encapsulates all startup hydration — cleaner abstraction but adds an indirection file for a simple two-line dispatch pattern
+
+**Decision:** Option 1 — dispatch both thunks in the existing `useEffect` in `RootLayoutInner`.
+
+**Rationale:** The current codebase has two startup side effects (hydrate + sync). Adding a third dispatch to the existing effect keeps all startup data loading visible in one place. The `useEffect` comment is updated to reflect both dispatches. A dedicated hook would be worthwhile if the number of startup dispatches grows significantly, but that is a future refactor decision.
+
+**Trade-offs accepted:** None significant.
+
+**Reversibility:** Trivial — remove the `hydrateExtractions()` dispatch line.
+
+**PM/Tech Lead review required:** No.
+
+---
+**Decision ID:** DEC-016
+**Agent:** Frontend Engineer
+**Task ID:** extractions-cache-and-rerun-guard
+**Timestamp:** 2026-05-14T00:00:00Z
+
+**Context:**
+Task B requires an `Alert.alert` confirmation before any extraction re-run. The re-run button is placed on the `failed` status state of the extraction detail screen. A question arose about what API call the re-run should make — the `ExtractionResponse` for a failed extraction has a `track_id` but not the original source list (labels/models). The only re-extraction API available is `POST /extraction/extract` which requires `sources[]`.
+
+**Options considered:**
+1. Call `extraction.extract(track_id, [])` with an empty sources array — technically non-standard but acceptable as a "re-run with defaults" intent; the backend decides what to do with no sources
+2. Navigate back to the upload flow with the track_id pre-populated so the user explicitly picks labels for the re-run — safer but changes the re-run UX from the extraction detail screen
+3. Show the Alert confirmation and, if confirmed, navigate to the home tab for the user to pick labels and then re-extract — preserves correct source selection but removes the "re-run in-place" experience
+
+**Decision:** Option 1 — call `extraction.extract(track_id, [])` after confirmation. The Alert message and button text ("Re-run extraction?", "Re-run") communicate that this consumes credits. The empty sources array is documented with a comment in the code.
+
+**Rationale:** The task specifies the Alert dialog content verbatim and says "proceeds" after confirmation — implying an immediate action, not a navigation. Option 1 satisfies the spec literally. If the API rejects an empty sources array, the error is surfaced in the UI via `rerunError` state. This is an escalatable scenario — if the API spec clarifies that sources must be non-empty, this call site needs to be updated to navigate to the label-selection flow instead.
+
+**Trade-offs accepted:** The re-run with empty sources may behave unexpectedly if the backend does not support zero sources. This is flagged as a potential spec ambiguity (see issue log).
+
+**Reversibility:** Easy — the `handleRerun` callback is self-contained. Changing the action to navigation requires only modifying the `onPress` handler.
+
+**PM/Tech Lead review required:** Yes — the re-run UX (in-place vs. navigate to label selection) and the empty sources behaviour should be confirmed with the PM before shipping.
+
+---
+**Decision ID:** DEC-017
+**Agent:** Frontend Engineer
+**Task ID:** extraction-hung-state-timeout
+**Timestamp:** 2026-05-14T00:00:00Z
+
+**Context:**
+The `useExtractionPoll` hook needed a threshold after which a long-running `processing` extraction is considered "hung" and a user-facing warning is surfaced. No threshold value was specified in the task's issue spec. The threshold determines both how long a user waits before seeing the warning and how often the warning is incorrectly shown for legitimate slow extractions (e.g., long tracks processed by Demucs on a busy worker).
+
+**Options considered:**
+1. 10 minutes — aligns with observed Demucs processing times for tracks up to ~10 minutes; long enough to avoid false positives for typical extractions while short enough that a genuinely stuck extraction is surfaced within a reasonable user session window. This is the value specified in the bug report directive.
+2. 5 minutes — surfaces the warning sooner but risks false positives for long tracks; would require backend-side data on typical processing durations to tune safely.
+3. 15 minutes — reduces false positives further but leaves users waiting without feedback for an excessively long period.
+
+**Decision:** Option 1 — 10 minutes (600,000 ms), exported as `HUNG_THRESHOLD_MS` from `useExtraction.ts` so tests and future callers can reference the constant without a magic number.
+
+**Rationale:** The bug report directive specifies 10 minutes as the default threshold. In the absence of backend-provided p95 processing time data, 10 minutes is a conservative choice that prevents false positives while still surfacing genuinely stuck extractions within a user session. The constant is exported to allow tests to assert on the exact value and to make future tuning (if backend metrics show a different p95) a single-file change.
+
+**Trade-offs accepted:** If the backend's actual p95 processing time exceeds 10 minutes for common inputs (long tracks, high source count), some users will see the warning for extractions that eventually succeed. This is acceptable: the message explicitly says "may still be running" and polling continues — no data is lost and no action is forced on the user.
+
+**Reversibility:** Easy — change `HUNG_THRESHOLD_MS` in `src/hooks/useExtraction.ts`. No UI component needs to change.
+
+**PM/Tech Lead review required:** Yes — the 10-minute threshold should be reviewed against actual backend processing time p95 data before shipping. If workers typically take longer than 10 minutes for studio-tier extractions, the threshold should be raised.

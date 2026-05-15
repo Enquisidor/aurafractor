@@ -60,6 +60,27 @@ def apply_schema(conn) -> None:
     logger.info('Base schema applied successfully.')
 
 
+def apply_add_failure_reason(conn) -> None:
+    """Add failure_reason column to extractions table (migration 0001)."""
+    migration_name = '0001_add_extraction_failure_reason'
+    if has_migration(conn, migration_name):
+        logger.info('Migration %s already applied, skipping.', migration_name)
+        return
+
+    logger.info('Applying migration: %s', migration_name)
+    with conn.cursor() as cur:
+        cur.execute("""
+            ALTER TABLE extractions
+            ADD COLUMN IF NOT EXISTS failure_reason VARCHAR(255) NULL
+        """)
+        cur.execute(
+            "INSERT INTO schema_migrations (name) VALUES (%s)",
+            (migration_name,),
+        )
+    conn.commit()
+    logger.info('Migration %s applied successfully.', migration_name)
+
+
 def run_migrations() -> None:
     """Entry point: apply all pending migrations."""
     logging.basicConfig(level=logging.INFO)
@@ -67,6 +88,7 @@ def run_migrations() -> None:
     try:
         ensure_migrations_table(conn)
         apply_schema(conn)
+        apply_add_failure_reason(conn)
     finally:
         conn.close()
 

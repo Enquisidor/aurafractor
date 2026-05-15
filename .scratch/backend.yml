@@ -1,0 +1,33 @@
+agent: backend
+session_id: cancel-extraction-timeout-cleanup
+last_updated: 2026-05-14T00:00:00Z
+status: active
+
+current_task: Writing decision log, activity log, and completion artifact for Task A (cancel endpoint) and Task B (stuck extraction timeout cleanup)
+
+tasks:
+  task-a-cancel-endpoint:
+    description: Implement POST /extraction/{extraction_id}/cancel endpoint with ownership check, status gating, and credit refund
+    status: complete
+    started_at: 2026-05-14T00:00:00Z
+    completed_at: 2026-05-14T00:10:00Z
+    output: backend/routes/extraction.py, backend/services/extraction.py, backend/database/models/extractions.py, backend/database/models/__init__.py
+    notes: Cancel route is mock-mode aware. Real logic lives in cancel_extraction_for_user service function. LookupError (non-cancellable status) handled inline in route to return 409. PermissionError propagates to @handle_errors for 403. failure_reason column added via migration 0001.
+
+  task-b-timeout-cleanup:
+    description: Add lazy timeout check on GET /extraction/{id} poll for processing extractions stuck > 15 minutes
+    status: complete
+    started_at: 2026-05-14T00:10:00Z
+    completed_at: 2026-05-14T00:20:00Z
+    output: backend/services/extraction.py, backend/database/models/extractions.py, backend/database/migrations.py
+    notes: _apply_timeout_if_stuck called from get_extraction_status when status is processing. Uses started_at (falls back to created_at). mark_extraction_timed_out uses WHERE status='processing' guard to prevent overwrite of terminal states. Worker callback (handle_extraction_webhook) now pre-checks current status and skips write if status is already terminal.
+
+  task-schema-migration:
+    description: Add failure_reason VARCHAR(255) NULL column to extractions table
+    status: complete
+    started_at: 2026-05-14T00:00:00Z
+    completed_at: 2026-05-14T00:05:00Z
+    output: backend/database/migrations.py
+    notes: Migration 0001_add_extraction_failure_reason added as apply_add_failure_reason() in migrations.py. Uses ALTER TABLE ... ADD COLUMN IF NOT EXISTS for idempotency.
+
+blockers: []

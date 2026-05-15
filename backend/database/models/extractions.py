@@ -84,6 +84,56 @@ def update_extraction_status(
             return dict(row) if row else None
 
 
+def cancel_extraction(extraction_id: str) -> Optional[Dict]:
+    """Mark an extraction as failed (cancelled) with a 'cancelled' failure_reason.
+
+    Only updates rows whose current status is 'queued' or 'processing', to prevent
+    race conditions where the worker completes the extraction between the status check
+    and the cancel write.
+
+    Returns the updated row, or None if the row was not found or was already in a
+    terminal status.
+    """
+    sql = """
+        UPDATE extractions
+        SET status = 'failed',
+            completed_at = CURRENT_TIMESTAMP,
+            failure_reason = 'cancelled'
+        WHERE extraction_id = %s
+          AND status IN ('queued', 'processing')
+        RETURNING *
+    """
+    with db_transaction() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(sql, (extraction_id,))
+            row = cur.fetchone()
+            return dict(row) if row else None
+
+
+def mark_extraction_timed_out(extraction_id: str) -> Optional[Dict]:
+    """Mark a stuck processing extraction as failed with failure_reason='timeout'.
+
+    Only updates rows whose current status is 'processing', to prevent overwriting
+    a terminal status that arrived concurrently.
+
+    Returns the updated row, or None if the row was not found or was not processing.
+    """
+    sql = """
+        UPDATE extractions
+        SET status = 'failed',
+            completed_at = CURRENT_TIMESTAMP,
+            failure_reason = 'timeout'
+        WHERE extraction_id = %s
+          AND status = 'processing'
+        RETURNING *
+    """
+    with db_transaction() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(sql, (extraction_id,))
+            row = cur.fetchone()
+            return dict(row) if row else None
+
+
 def count_active_extractions() -> int:
     """Count extractions currently queued or processing."""
     row = execute_query(

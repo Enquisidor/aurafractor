@@ -1,4 +1,4 @@
-"""Extraction routes: suggest labels, extract, poll status, feedback."""
+"""Extraction routes: suggest labels, extract, poll status, feedback, cancel."""
 
 import os
 from datetime import datetime
@@ -164,6 +164,35 @@ def get_status(extraction_id):
     if not MOCK_MODE:  # pragma: no cover
         from services.extraction import get_extraction_status
         return jsonify(get_extraction_status(extraction_id, user_id))
+
+
+@bp.route('/<extraction_id>/cancel', methods=['POST'])
+@require_auth
+@handle_errors
+def cancel_extraction(extraction_id):
+    """Cancel a queued or processing extraction.
+
+    Returns 409 if the extraction is already in a terminal or non-cancellable status.
+    Returns 403 if the extraction does not belong to the authenticated user.
+    """
+    extraction_id = validate_uuid(extraction_id, 'extraction_id')
+    user_id = g.user['user_id']
+
+    if MOCK_MODE:
+        return jsonify({
+            'extraction_id': extraction_id,
+            'status': 'failed',
+            'completed_at': datetime.utcnow().isoformat(),
+        })
+
+    if not MOCK_MODE:  # pragma: no cover
+        from services.extraction import cancel_extraction_for_user
+        try:
+            result = cancel_extraction_for_user(extraction_id, user_id)
+        except LookupError as exc:
+            return jsonify({'error': str(exc)}), 409
+        increment('extractions.cancelled')
+        return jsonify(result)
 
 
 @bp.route('/<extraction_id>/feedback', methods=['POST'])

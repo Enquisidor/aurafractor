@@ -313,3 +313,94 @@ OBS-002: The staging environment (FLASK_ENV=staging) uses the same CORS origin l
 
 **Issues flagged:**
 - None.
+
+---
+## extraction-hung-state-timeout | 2026-05-14
+
+**Agent:** Frontend Engineer
+**Task ID:** extraction-hung-state-timeout
+**Status:** Completed
+
+**Task description:** Implement a hung-state timeout in `useExtractionPoll` that sets `isHung: true` when `status === 'processing'` for more than 10 minutes; surface a user-facing "taking longer than expected" message with a Dismiss button in `ExtractionProgressBar`; pass `isHung` from `extraction/[id].tsx` to the progress bar.
+
+**Inputs received:**
+- `ui/src/hooks/useExtraction.ts`
+- `ui/src/components/ExtractionProgressBar.tsx`
+- `ui/app/extraction/[id].tsx`
+- `ui/src/__tests__/hooks.useExtraction.test.ts`
+- `ui/src/api/client.ts` (for `ExtractionResponse.started_at` field reference)
+
+**Outputs produced:**
+- `ui/src/hooks/useExtraction.ts` — added `isHung` state; `processingStartedAtRef` fallback timer; elapsed-time check on each processing poll result; `isHung` cleared on terminal status; `HUNG_THRESHOLD_MS` constant exported
+- `ui/src/components/ExtractionProgressBar.tsx` — added optional `isHung` prop; hung-state render branch with warning message and accessible Dismiss button using `router.canGoBack()` back-navigation pattern
+- `ui/app/extraction/[id].tsx` — destructured `isHung` from `useExtractionPoll`; passed `isHung` to `<ExtractionProgressBar>`
+
+**Self-checks applied:**
+- Security: no user-controlled content inserted via unsafe mechanisms; no token handling; no new external dependencies. Passed.
+- Accessibility: hung-state container uses `accessibilityRole="alert"` so screen readers announce the warning immediately on render; Dismiss button has `accessibilityRole="button"` and `accessibilityLabel="Dismiss"`; `hitSlop` applied for minimum touch target size. Passed.
+- Performance: `isHung` is a boolean derived from a single `Date.now()` comparison per poll tick — negligible computation; no new intervals or timers added beyond the existing poll interval. `processingStartedAtRef` is a ref, not state, so it causes no re-renders. Passed.
+- Design accuracy (architectural fidelity): `isHung` naming follows the task spec; `ExtractionProgressBar` prop interface extended with an optional additive prop — no breaking change; domain terms (`Extraction`, `processing`) unchanged. No API field names changed. Passed.
+
+**Decisions made:**
+- DEC-017: 10-minute hung-state threshold — exported as `HUNG_THRESHOLD_MS`. See decisions.md.
+
+**Assumptions made:**
+- The `started_at` field in `ExtractionResponse` is an ISO 8601 string when present. `new Date(started_at).getTime()` is safe to call without additional validation.
+- The `act(...)` warnings in test output are pre-existing (same pattern existed before this change) and do not indicate test failures. All 33 tests pass.
+- `C.warningDim`, `C.warning`, `C.surface`, `C.border`, `C.textSecondary`, `C.textPrimary` are all valid tokens on the `Theme` type used in `ExtractionProgressBar`. Confirmed by inspecting existing usage of these tokens in the same file and in `[id].tsx`.
+
+**Issues flagged:**
+- None.
+
+---
+## extractions-cache-and-rerun-guard | 2026-05-14
+
+**Agent:** Frontend Engineer
+**Task ID:** extractions-cache-and-rerun-guard
+**Status:** Completed-with-issues
+
+**Task description:** (A) Add `extractionsSlice` Redux slice with upsert/clear actions and `selectExtraction` selector, persist to platform storage, hydrate on startup, dispatch from extraction detail screen on each poll, skip polling when terminal result is cached. (B) Add `Alert.alert` re-run confirmation dialog before any extraction re-run that consumes credits.
+
+**Inputs received:**
+- `ui/src/store/store.ts`
+- `ui/src/store/uploadQueueSlice.ts`
+- `ui/src/store/auth.ts`
+- `ui/src/api/client.ts`
+- `ui/src/storage/platform.ts`
+- `ui/app/_layout.tsx`
+- `ui/src/hooks/useAuth.ts`
+- `ui/src/hooks/useExtraction.ts`
+- `ui/app/extraction/[id].tsx`
+- `ui/app/(tabs)/history.tsx`
+- `ui/app/(tabs)/index.tsx`
+- `ui/app/extraction/feedback.tsx`
+- `ui/src/__tests__/hooks.useExtraction.test.ts`
+- `ui/jest.config.js`
+
+**Outputs produced:**
+- `ui/src/store/extractionsSlice.ts` (new) — Redux Toolkit slice with `upsertExtraction`, `clearExtractions` actions and `selectExtraction` selector; `hydrateExtractions` async thunk; persists to `'extractions_cache'` on every upsert
+- `ui/src/store/store.ts` (modified) — added `extractions: extractionsReducer` to `configureStore` reducer map
+- `ui/app/_layout.tsx` (modified) — added `hydrateExtractions` dispatch in the startup `useEffect` alongside `hydrateUploadQueue`
+- `ui/src/hooks/useExtraction.ts` (note) — `useDispatch` was not added; hook remains Redux-free to preserve test compatibility; dispatch responsibility stays in the calling screen
+- `ui/app/extraction/[id].tsx` (modified) — added `useSelector(selectExtraction)` for cache-first strategy; `useEffect` dispatches `upsertExtraction` on each `polledData` change; added `handleRerun` with `Alert.alert` confirmation dialog; added Re-run Extraction button in the `failed` status block; also incorporates linter-added `isHung` destructuring from prior task
+- `ui/jest.config.js` (modified) — added `react-redux`, `@reduxjs/toolkit`, and `immer` to `transformIgnorePatterns` so their ESM dist files are transpiled by babel-jest in test environments
+
+**Self-checks applied:**
+- Security: `upsertExtraction` stores `ExtractionResponse` JSON — no credentials or tokens in this type; storage write is to `'extractions_cache'` key only. No user-controlled content rendered via unsafe mechanisms. `Alert.alert` message uses `data.cost_credits` (a number from the API, not user input). Passed.
+- Accessibility: re-run button has `accessibilityRole="button"` and `accessibilityLabel="Re-run extraction"`; `disabled` prop used (not only style) for the loading state. `Alert.alert` is platform-native and accessible on both iOS and Android. Passed.
+- Performance: `selectExtraction(id)` is a curried selector — simple object property lookup, negligible cost. Polling is disabled when a terminal result is cached, eliminating redundant network calls. No duplicate requests introduced. Passed.
+- Design accuracy (architectural fidelity): slice key `extractions`, actions `upsertExtraction`/`clearExtractions`, selector `selectExtraction` — all follow the glossary term `Extraction`. `ExtractionResponse` type imported from `src/api/client.ts` as specified. Storage key `'extractions_cache'` documented. Passed.
+
+**Decisions made:**
+- DEC-013: Storage key `'extractions_cache'` chosen over `'extractions'` to communicate advisory cache semantics. See decisions.md.
+- DEC-014: `useDispatch` kept out of `useExtractionPoll` hook; dispatch responsibility in calling screen to preserve test compatibility. See decisions.md.
+- DEC-015: `hydrateExtractions` dispatched in existing `useEffect` in `_layout.tsx` alongside `hydrateUploadQueue`. See decisions.md.
+- DEC-016: Re-run uses `extraction.extract(track_id, [])` with empty sources array — acknowledged spec ambiguity. See decisions.md.
+
+**Assumptions made:**
+- The `console.error` `act()` warnings in the test suite are pre-existing (confirmed in prior session notes) and do not indicate test failures.
+- The linter-added `isHung` feature in `useExtraction.ts` and `[id].tsx` is intentional and already integrated — it does not conflict with this task's changes.
+- The empty sources array sent on re-run is valid or returns a handled error surfaced via `rerunError` state.
+
+**Issues flagged:**
+- ISS-004: Re-run calls `extraction.extract(track_id, [])` with empty sources — spec does not define backend behaviour for zero sources. P2. See issues.md.

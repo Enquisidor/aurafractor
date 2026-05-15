@@ -239,6 +239,12 @@ export const extraction = {
   poll: (extractionId: string) =>
     request<ExtractionResponse>(`/extraction/${extractionId}`),
 
+  cancel: (extractionId: string) =>
+    request<{ extraction_id: string; status: string; cancelled_at: string }>(
+      `/extraction/${extractionId}/cancel`,
+      { method: 'POST' },
+    ),
+
   feedback: (
     extractionId: string,
     body: {

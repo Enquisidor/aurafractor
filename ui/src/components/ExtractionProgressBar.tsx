@@ -2,6 +2,8 @@
  * Progress indicator shown while an extraction is in `processing` or `queued` status.
  *
  * Processing state:
+ *   - If `isHung` is true: shows a "taking longer than expected" message with a
+ *     Dismiss button. Polling continues — the backend may eventually complete.
  *   - If `estimatedTimeSeconds` and `startedAt` are provided: shows an animated
  *     determinate progress bar derived from elapsed time, capped at 95% so it
  *     never falsely shows 100% before the backend confirms completion.
@@ -12,11 +14,13 @@
  *   - Shows `queuePosition` when available, otherwise "Queued…".
  */
 
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
   LayoutChangeEvent,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -29,6 +33,8 @@ interface Props {
   estimatedTimeSeconds?: number | null;
   startedAt?: string | null;
   queuePosition?: number | null;
+  /** True when processing has exceeded the hung-state threshold (10 min). */
+  isHung?: boolean;
 }
 
 const PROGRESS_UPDATE_INTERVAL_MS = 1000;
@@ -41,9 +47,21 @@ export function ExtractionProgressBar({
   estimatedTimeSeconds,
   startedAt,
   queuePosition,
+  isHung = false,
 }: Props) {
   const { C } = useTheme();
   const s = makeStyles(C);
+
+  // ---------------------------------------------------------------------------
+  // Hung-state dismissal
+  // ---------------------------------------------------------------------------
+  const handleDismiss = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/history');
+    }
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Determinate progress (processing + enough data to estimate)
@@ -120,6 +138,32 @@ export function ExtractionProgressBar({
         >
           {label}
         </Text>
+      </View>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Render: hung state (processing exceeded threshold)
+  // ---------------------------------------------------------------------------
+  if (isHung) {
+    return (
+      <View
+        style={s.hungContainer}
+        accessibilityRole="alert"
+        accessibilityLabel="This is taking longer than expected. The extraction may still be running — check back later."
+      >
+        <Text style={s.hungMessage}>
+          This is taking longer than expected. The extraction may still be running — check back later.
+        </Text>
+        <Pressable
+          onPress={handleDismiss}
+          style={({ pressed }) => [s.dismissButton, pressed && s.dismissButtonPressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={s.dismissButtonText}>Dismiss</Text>
+        </Pressable>
       </View>
     );
   }
@@ -215,6 +259,36 @@ function makeStyles(C: Theme) {
       height: '100%',
       borderRadius: 4,
       backgroundColor: C.fuchsia,
+    },
+    hungContainer: {
+      gap: 12,
+      padding: 16,
+      borderRadius: 10,
+      backgroundColor: C.warningDim,
+      borderWidth: 1,
+      borderColor: C.warning,
+    },
+    hungMessage: {
+      fontSize: 14,
+      color: C.textSecondary,
+      lineHeight: 20,
+    },
+    dismissButton: {
+      alignSelf: 'flex-start',
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+      backgroundColor: C.surface,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    dismissButtonPressed: {
+      opacity: 0.6,
+    },
+    dismissButtonText: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: C.textPrimary,
     },
   });
 }

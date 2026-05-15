@@ -1,9 +1,9 @@
 agent: frontend
-session_id: ux-improvements-3issues
+session_id: extractions-cache-and-rerun-guard
 last_updated: 2026-05-14T00:00:00Z
 status: complete
 
-current_task: first-launch-modal returning-device third state — complete
+current_task: extractions-cache-and-rerun-guard — complete
 
 tasks:
   auth-surface-registration:
@@ -45,5 +45,25 @@ tasks:
     completed_at: 2026-05-14T00:00:00Z
     output: ui/src/components/FirstLaunchModal.tsx
     notes: Replaced boolean isNewUser render branch with ModalVariant state. SESSION_TOKEN_KEY constant added. Promise.all reads seen + token in parallel. DEC-012 logged. 33 tests pass.
+
+  extraction-hung-state-timeout:
+    description: Add isHung timeout to useExtractionPoll (10 min threshold using started_at or local fallback ref); surface hung-state message + Dismiss button in ExtractionProgressBar; wire isHung into extraction/[id].tsx
+    status: complete
+    started_at: 2026-05-14T00:00:00Z
+    completed_at: 2026-05-14T00:00:00Z
+    output: ui/src/hooks/useExtraction.ts, ui/src/components/ExtractionProgressBar.tsx, ui/app/extraction/[id].tsx
+    notes: All 33 tests pass. DEC-017 logged. HUNG_THRESHOLD_MS exported as constant.
+
+  extractions-cache-and-rerun-guard:
+    description: |
+      (A) extractionsSlice Redux slice with persist/hydrate; cache-first strategy in extraction screen;
+      (B) Alert.alert confirmation before re-run in extraction/[id].tsx
+    status: complete
+    started_at: 2026-05-14T00:00:00Z
+    completed_at: 2026-05-14T00:00:00Z
+    output: .handoffs/frontend-completion-extractions-cache-and-rerun-guard.md
+    notes: |
+      All 33 tests pass. DEC-013/014/015/016 logged. ISS-004 raised (empty sources on re-run P2).
+      Status: AWAITING TECH LEAD REVIEW pending ISS-004 and DEC-016 resolution.
 
 blockers: []
