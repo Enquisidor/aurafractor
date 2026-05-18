@@ -139,28 +139,11 @@ async function getToken(): Promise<string | null> {
 
 const REQUEST_TIMEOUT_MS = 10_000;
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {},
-  isFormData = false,
-): Promise<T> {
-  const token = await getToken();
-  const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string>),
-  };
-  if (!isFormData) {
-    headers['Content-Type'] = 'application/json';
-  }
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
+async function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-  let res: Response;
   try {
-    res = await fetch(`${BASE_URL}${path}`, { ...options, headers, signal: controller.signal });
+    return await fetch(url, { ...options, signal: controller.signal });
   } catch (e: unknown) {
     if (e instanceof Error && e.name === 'AbortError') {
       throw new Error('Request timed out — backend unreachable');
@@ -168,6 +151,47 @@ async function request<T>(
     throw e;
   } finally {
     clearTimeout(timer);
+  }
+}
+
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+  isFormData = false,
+): Promise<T> {
+  const buildHeaders = (token: string | null): Record<string, string> => {
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string>),
+    };
+    if (!isFormData) headers['Content-Type'] = 'application/json';
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return headers;
+  };
+
+  let token = await getToken();
+  let res = await fetchWithTimeout(`${BASE_URL}${path}`, { ...options, headers: buildHeaders(token) });
+
+  // On 401, attempt a silent token refresh and retry once.
+  // Call the refresh endpoint directly (not via request()) to avoid recursion.
+  if (res.status === 401) {
+    const refreshToken = await storage.getItem('refresh_token');
+    if (refreshToken) {
+      try {
+        const refreshRes = await fetchWithTimeout(`${BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+        if (refreshRes.ok) {
+          const refreshJson = await refreshRes.json() as { session_token: string; expires_in: number };
+          await storage.setItem('session_token', refreshJson.session_token);
+          token = refreshJson.session_token;
+          res = await fetchWithTimeout(`${BASE_URL}${path}`, { ...options, headers: buildHeaders(token) });
+        }
+      } catch {
+        // Refresh failed — fall through to throw the original 401
+      }
+    }
   }
 
   const json = await res.json();
