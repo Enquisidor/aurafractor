@@ -29,10 +29,12 @@ Run: `git diff --name-only $(git merge-base HEAD main)..HEAD`
 
 ## Step 5 — Run agents
 
-For each selected agent, spawn it as a sub-agent with:
-- Its assembled persona from `../.claude/agents/assembled/review/<agent>.md` as the system prompt
-- Only the files relevant to its concern (see each persona's Inputs section for scoping rules)
-- Instruction to append findings to `.logs/issues.md` and end with its standard verdict block
+For each selected agent, invoke it using the `Agent` tool with:
+- `subagent_type` set to the agent's name (e.g. `security-reviewer`, `code-quality-reviewer`, `accessibility-reviewer`, `architectural-consistency-reviewer`, `cicd-reviewer`, `document-consistency-reviewer`, `po-signoff`)
+- `prompt` containing only the files relevant to its concern (see each persona's Inputs section for scoping rules) and instruction to append findings to `.logs/issues.md` and end with its standard verdict block
+- `run_in_background: true`
+
+Claude Code loads the agent's system prompt automatically from its assembled persona. Do not read persona files or pass them as a system prompt.
 
 Run in the order chosen in Step 2: all at once if parallel, one at a time if sequential.
 

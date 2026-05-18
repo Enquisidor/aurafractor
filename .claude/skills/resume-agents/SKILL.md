@@ -10,6 +10,8 @@ The `Agent` tool always starts a fresh agent with no prior context. When a runni
 
 It also handles the general case: any time you need to send a message to a specific running background agent by name or role.
 
+> **Prerequisite:** `SendMessage` requires the environment variable `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` to be set. If the tool is not available, tell the user to set that variable and restart their Claude Code session.
+
 ---
 
 ## Protocol

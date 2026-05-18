@@ -67,22 +67,17 @@ import { selectExtraction, upsertExtraction } from '../../src/store/extractionsS
 import { AppDispatch } from '../../src/store/store';
 import { Theme } from '../../src/theme';
 
-const TERMINAL_STATUSES = new Set<ExtractionResponse['status']>(['completed', 'failed']);
-
 export default function ExtractionScreen() {
   const { C } = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const dispatch = useDispatch<AppDispatch>();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  // Check the cache for a terminal result before starting a poll.
+  // Always poll on mount — signed URLs expire after 60 min, so even a cached
+  // terminal result needs a fresh fetch to get valid audio/waveform URLs.
+  // The hook stops the interval automatically after receiving a terminal state.
   const cached = useSelector(selectExtraction(id ?? ''));
-  const cachedIsTerminal = cached != null && TERMINAL_STATUSES.has(cached.status);
-
-  // Only poll when we do not already have a terminal cached result.
-  const { data: polledData, error, isHung } = useExtractionPoll(
-    id != null && !cachedIsTerminal ? id : null,
-  );
+  const { data: polledData, error, isHung } = useExtractionPoll(id ?? null);
 
   // Sync every successful poll result into the Redux store.
   useEffect(() => {
