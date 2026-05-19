@@ -1,6 +1,6 @@
 ---
 name: bootstrapping
-description: Day-zero project setup workflow. Run once at project start to produce spec artifacts, assembled personas, and a failing test skeleton. Invoke before the tdd-bdd-sequence workflow — bootstrapping completes Phases 1–4 so the pipeline can enter at Phase 5 (Implementation).
+description: Day-zero project setup workflow. Run once at project start to produce spec artifacts, assembled personas, and a failing test skeleton. Completes Phases 1–4 of the orchestrator's TDD/BDD pipeline so the orchestrator can enter at Phase 5 (Implementation).
 user-invocable: false
 allowed-tools: Read
 ---
@@ -136,7 +136,7 @@ After Step 5, the project is ready for the TDD/BDD development sequence:
 .test-reports/         — phase-1 report confirming all tests fail
 ```
 
-Hand off to the orchestrator. Begin at **Phase 5 (Implementation)** of the `tdd-bdd-sequence` workflow — Phases 1 through 4 are already complete.
+Hand off to the orchestrator. Begin at **Phase 5 (Implementation)** — Phases 1 through 4 are already complete.
 
 ---
 

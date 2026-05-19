@@ -47,7 +47,8 @@ export function StemPlayer({ source, extractionId }: Props) {
         <View style={styles.info}>
           <Text style={[styles.label, { color: C.textPrimary }]}>{source.label}</Text>
           <Text style={[styles.meta, { color: C.textMuted }]}>
-            {source.model_used} · {source.duration_seconds}s · {source.sample_rate / 1000}kHz
+            {source.model_used} · {source.duration_seconds}s
+            {source.sample_rate ? ` · ${source.sample_rate / 1000}kHz` : ''}
           </Text>
         </View>
 

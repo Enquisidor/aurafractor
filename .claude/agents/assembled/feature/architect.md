@@ -8,6 +8,7 @@ skills:
   - write-handoff
   - log-decision
   - log-activity
+  - check-prior-issues
 ---
 
 # Architect

@@ -6,12 +6,12 @@ allowed-tools: Read Write
 
 ## Protocol
 
-1. **Read `.logs/issues.md`** to find the highest existing issue ID. Issue IDs follow the pattern `ISSUE-NNN` (zero-padded to three digits). If the file does not exist, create it with this header:
+1. **Read `.logs/issues.md`** to find the highest existing issue ID. Issue IDs follow the pattern `ISS-NNN` (zero-padded to three digits). If the file does not exist, create it with this header:
    ```
    # Issue Log
    ```
 
-2. **Assign the next sequential ID.** If the highest existing ID is `ISSUE-014`, assign `ISSUE-015`. If the file is empty or newly created, start at `ISSUE-001`.
+2. **Assign the next sequential ID.** If the highest existing ID is `ISS-014`, assign `ISS-015`. If the file is empty or newly created, start at `ISS-001`.
 
 3. **Read `logs/issue-log-format.md`** to confirm the current required fields and structure before writing.
 
