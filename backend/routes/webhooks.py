@@ -21,12 +21,11 @@ def extraction_complete():
     extraction_id = validate_uuid(data.get('extraction_id'), 'extraction_id')
     success = bool(data.get('success', False))
 
-    # NOTE: handle_extraction_webhook makes DB calls. In mock mode (ENABLE_MOCK_RESPONSES=true)
-    # there is no database, so this call will raise an exception if the DB is unavailable.
-    # The @handle_errors decorator will catch the exception and return a 500. This is
-    # intentional: the webhook should not silently swallow the call in any mode.
-    # If running mock mode without a DB, ensure the DB is either available or stub
-    # handle_extraction_webhook in integration tests.
+    if MOCK_MODE:
+        # No DB in mock mode — acknowledge without persisting.
+        increment('webhooks.extraction.' + ('success' if success else 'failure'))
+        return jsonify({'status': 'accepted'})
+
     from services.extraction import handle_extraction_webhook
     handle_extraction_webhook(
         extraction_id=extraction_id,
