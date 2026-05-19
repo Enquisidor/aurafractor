@@ -55,7 +55,12 @@ export const hydrateUploadQueue = createAsyncThunk(
   async (): Promise<UploadEntry[]> => {
     const raw = await storage.getItem(PERSIST_KEY);
     if (!raw) return [];
-    try { return JSON.parse(raw) as UploadEntry[]; } catch { return []; }
+    try {
+      const entries = JSON.parse(raw) as UploadEntry[];
+      // Drop stale 'queued' entries — file URIs (especially blob: URLs on web)
+      // don't survive page reloads, so retrying them would always 400.
+      return entries.filter((e) => e.status !== 'queued');
+    } catch { return []; }
   },
 );
 
@@ -118,8 +123,7 @@ export const uploadQueueSlice = createSlice({
     markFailed(state, action: PayloadAction<{ localId: string; errorMessage: string }>) {
       const entry = state.entries.find((e) => e.localId === action.payload.localId);
       if (entry) {
-        // failed → queued so it will be retried on next sync
-        entry.status = 'queued';
+        entry.status = 'failed';
         entry.errorMessage = action.payload.errorMessage;
         persist(state.entries);
       }

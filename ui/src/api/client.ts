@@ -237,7 +237,19 @@ export const auth = {
 export const upload = {
   audio: async (fileUri: string, filename: string, mimeType: string, clientId?: string): Promise<UploadResponse> => {
     const formData = new FormData();
-    formData.append('file', { uri: fileUri, name: filename, type: mimeType } as unknown as Blob);
+    if (Platform.OS === 'web') {
+      // On web, fileUri is a blob: URL from URL.createObjectURL().
+      // FormData.append() with a plain object produces "[object Object]", so we
+      // fetch the blob URL back to get an actual Blob and wrap it in a File.
+      const res = await fetch(fileUri);
+      const blob = await res.blob();
+      const file = new File([blob], filename, { type: mimeType });
+      formData.append('file', file, filename);
+    } else {
+      // React Native: the { uri, name, type } object shape is understood by the
+      // native FormData implementation and multipart encoder.
+      formData.append('file', { uri: fileUri, name: filename, type: mimeType } as unknown as Blob);
+    }
     if (clientId) formData.append('client_id', clientId);
     return request<UploadResponse>('/upload', { method: 'POST', body: formData }, true);
   },
