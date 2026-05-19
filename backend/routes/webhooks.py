@@ -21,22 +21,23 @@ def extraction_complete():
     extraction_id = validate_uuid(data.get('extraction_id'), 'extraction_id')
     success = bool(data.get('success', False))
 
-    if MOCK_MODE:
-        increment('webhooks.extraction.' + ('success' if success else 'failure'))
-        return jsonify({'status': 'accepted'})
+    # NOTE: handle_extraction_webhook makes DB calls. In mock mode (ENABLE_MOCK_RESPONSES=true)
+    # there is no database, so this call will raise an exception if the DB is unavailable.
+    # The @handle_errors decorator will catch the exception and return a 500. This is
+    # intentional: the webhook should not silently swallow the call in any mode.
+    # If running mock mode without a DB, ensure the DB is either available or stub
+    # handle_extraction_webhook in integration tests.
+    from services.extraction import handle_extraction_webhook
+    handle_extraction_webhook(
+        extraction_id=extraction_id,
+        success=success,
+        sources=data.get('sources') if success else None,
+        error_message=data.get('error_message'),
+        processing_time_seconds=data.get('processing_time_seconds'),
+    )
 
-    if not MOCK_MODE:  # pragma: no cover
-        from services.extraction import handle_extraction_webhook
-        handle_extraction_webhook(
-            extraction_id=extraction_id,
-            success=success,
-            sources=data.get('sources') if success else None,
-            error_message=data.get('error_message'),
-            processing_time_seconds=data.get('processing_time_seconds'),
-        )
-
-        increment('webhooks.extraction.' + ('success' if success else 'failure'))
-        return jsonify({'status': 'accepted'})
+    increment('webhooks.extraction.' + ('success' if success else 'failure'))
+    return jsonify({'status': 'accepted'})
 
 
 @bp.route('/worker/extract', methods=['POST'])

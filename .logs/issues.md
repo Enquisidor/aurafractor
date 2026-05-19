@@ -115,3 +115,37 @@ Three options to escalate to the PM/Architect:
 3. Change the re-run UX to navigate the user back to the label-selection step rather than re-running immediately — eliminates the empty-sources problem but changes the UX from in-place to multi-step
 
 **Auto-fix attempted:** No — awaiting PM/Architect decision on which option to pursue.
+
+---
+**Issue ID:** ISS-005
+**Timestamp:** 2026-05-19T00:00:00Z
+**Reported by:** IaC/DevOps Engineer (worker-url-wiring investigation)
+**Task/Session ID:** worker-url-wiring
+**Status:** Open
+
+**Severity:** P1
+**Category:** Infrastructure — missing dependency
+**Title:** No ML worker Cloud Run service exists in Terraform; all extraction jobs fail silently after 3 retries.
+
+**Description:**
+`backend/services/tasks.py` reads `WORKER_URL` from its environment and uses it as the HTTP target for every Cloud Tasks extraction job. In the current production Cloud Run deployment, `WORKER_URL` is not set as an environment variable, so the application falls back to the hardcoded default `http://localhost:5001/worker/extract`. Cloud Tasks POSTs to this localhost address, which is not reachable from Cloud Run. The task fails, Cloud Tasks retries it twice more (3 attempts total per `retry_config` in `cloud_tasks.tf`), then the task is discarded. The extraction record in the database remains in `queued` status indefinitely — no processing occurs and no error is surfaced to the user.
+
+A review of all Terraform files (`cloud_run.tf`, `cloud_tasks.tf`, `gcs.tf`, `main.tf`, `variables.tf`) and the Terraform state confirms that no worker Cloud Run service has ever been provisioned. The wiring infrastructure (variable `worker_url`, conditional env var block in the API service) has been added in this task, but it cannot be populated with a real URL until the worker service exists.
+
+**Location:**
+- `backend/services/tasks.py` line 19: `WORKER_URL = os.getenv('WORKER_URL', 'http://localhost:5001/worker/extract')`
+- `terraform/cloud_run.tf` — `WORKER_URL` env var absent (now added as conditional; blocked on worker service URL)
+- `terraform/` — no worker Cloud Run service resource exists
+
+**Spec reference:** N/A — this is a missing infrastructure component blocking the core product feature.
+
+**Suggested fix (partial — wiring ready, worker service required):**
+The `WORKER_URL` env var wiring is now in place in `terraform/cloud_run.tf` and `terraform/variables.tf`. To resolve this issue completely:
+1. Provision an ML worker Cloud Run service (a new Terraform resource, likely in a new `terraform/worker.tf` file) with a container image that handles `POST /worker/extract` requests and runs Demucs/Spleeter.
+2. Create a service account for the worker with appropriate permissions (GCS read/write for stems, Cloud SQL access for status updates).
+3. Set `worker_url` in `terraform.tfvars` to the worker's Cloud Run URI plus the `/worker/extract` path.
+4. Run `terraform apply` to inject `WORKER_URL` into the API service environment, triggering a new Cloud Run revision.
+5. Verify by enqueueing a test extraction and confirming the task reaches the worker.
+
+**Auto-fix attempted:** Partial — `WORKER_URL` wiring infrastructure added to `terraform/variables.tf`, `terraform/cloud_run.tf`, and `terraform/terraform.tfvars.example`. Worker service provisioning and URL population are manual steps requiring tech lead approval.
+**Auto-fix outcome:** Wiring ready; blocked on worker service existence and URL.

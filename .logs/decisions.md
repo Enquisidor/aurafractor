@@ -395,3 +395,26 @@ The `useExtractionPoll` hook needed a threshold after which a long-running `proc
 **Reversibility:** Easy — change `HUNG_THRESHOLD_MS` in `src/hooks/useExtraction.ts`. No UI component needs to change.
 
 **PM/Tech Lead review required:** Yes — the 10-minute threshold should be reviewed against actual backend processing time p95 data before shipping. If workers typically take longer than 10 minutes for studio-tier extractions, the threshold should be raised.
+
+---
+**Decision ID:** DEC-018
+**Agent:** IaC/DevOps Engineer
+**Task ID:** worker-url-wiring
+**Timestamp:** 2026-05-19T00:00:00Z
+
+**Context:**
+The API Cloud Run service reads WORKER_URL from its environment to know where Cloud Tasks should POST extraction jobs. Without this variable set, the backend code in `backend/services/tasks.py` falls back to `http://localhost:5001/worker/extract` — a localhost address that is unreachable from Cloud Run. Every extraction job enqueued by the API hits a non-existent endpoint, silently fails after 3 retries, and leaves the extraction in a permanently stuck `queued` state. No worker Cloud Run service exists anywhere in the Terraform configuration or in the terraform state.
+
+**Options considered:**
+1. Add `var.worker_url` to `variables.tf` with an empty default and wire it as a conditional `WORKER_URL` env var on the API Cloud Run service. Use a `dynamic "env"` block so the env var is omitted (not set to an empty string) when the variable is unset. Document the missing worker service with TODO comments in both files. Do NOT invent or stub a worker Cloud Run service — that is a separate provisioning concern.
+2. Hardcode a placeholder WORKER_URL value (e.g., `https://worker.example.com/worker/extract`) in the Terraform config — would set the variable but to a non-functional value; no better than the current localhost default and potentially more confusing.
+
+**Decision:** Option 1 — add `var.worker_url` (empty default, string type) to `variables.tf`, wire via `dynamic "env"` block in `cloud_run.tf`, document the missing worker service with TODO comments in both `cloud_run.tf` and `terraform.tfvars.example`.
+
+**Rationale:** Option 2 would set the variable to a non-functional value, which is no improvement over the current localhost default. Option 1 makes the missing dependency explicit and auditable: the TODO comments clearly state that a worker service must be provisioned before this variable can be given a real value, and the empty default means `terraform apply` does not regress existing behaviour (the env var is simply absent, same as today). The `dynamic "env"` block ensures no empty-string WORKER_URL is injected into the container, which would override the backend default with an equally broken value.
+
+**Trade-offs accepted:** Extractions will continue to fail until a worker service is provisioned and `worker_url` is set to its Cloud Run URI. This is the correct state to surface — the problem should be visible, not papered over with a placeholder. The fix is intentionally incomplete until the worker service exists.
+
+**Reversibility:** Easy — removing the `dynamic "env"` block and `var.worker_url` from both files reverts to current state. No stateful resources are affected.
+
+**PM/Tech Lead review required:** Yes — provisioning the ML worker Cloud Run service is a significant scope item (new container image, service account, IAM, autoscaling configuration, and likely a new Terraform file). This task makes the wiring ready but does not unblock extractions on its own. Tech Lead must approve the worker service provisioning plan before it is implemented.

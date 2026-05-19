@@ -70,3 +70,16 @@ variable "allowed_origins" {
   type        = string
   default     = "https://aurafractor.web.app,https://aurafractor.firebaseapp.com"
 }
+
+# TODO: A dedicated ML worker Cloud Run service must be provisioned before this
+# variable can be set to a real value. The worker service is not yet defined in
+# this Terraform configuration. When it is created, set worker_url to the Cloud
+# Run service URI (format: https://<service>-<hash>-<region>.a.run.app) or to
+# the custom domain mapped to it. Until the worker service exists and this
+# variable is set, the API will default to http://localhost:5001/worker/extract
+# and all extraction jobs will fail silently after 3 Cloud Tasks retries.
+variable "worker_url" {
+  description = "Full HTTPS URL of the ML worker Cloud Run service that Cloud Tasks will POST extraction jobs to (e.g. https://aurafractor-worker-<hash>-uc.a.run.app/worker/extract). Leave empty until the worker service is provisioned."
+  type        = string
+  default     = ""
+}

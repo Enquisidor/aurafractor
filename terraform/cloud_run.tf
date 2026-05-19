@@ -105,6 +105,28 @@ resource "google_cloud_run_v2_service" "api" {
         value = var.allowed_origins
       }
 
+      # Target URL for Cloud Tasks extraction jobs.
+      #
+      # TODO: A dedicated ML worker Cloud Run service must be provisioned before
+      # this value is meaningful. No worker service currently exists in Terraform.
+      # Steps to complete this wiring:
+      #   1. Add a worker Cloud Run service resource (e.g. in a new worker.tf).
+      #   2. Set var.worker_url in terraform.tfvars to the worker's Cloud Run URI
+      #      (e.g. https://aurafractor-worker-<hash>-uc.a.run.app/worker/extract)
+      #      or to its custom domain equivalent.
+      #   3. Run terraform apply to redeploy the API with the correct WORKER_URL.
+      #
+      # Until var.worker_url is set, this env var is omitted and the backend falls
+      # back to its hardcoded default (http://localhost:5001/worker/extract), which
+      # will cause all extraction jobs to fail silently after 3 Cloud Tasks retries.
+      dynamic "env" {
+        for_each = var.worker_url != "" ? [1] : []
+        content {
+          name  = "WORKER_URL"
+          value = var.worker_url
+        }
+      }
+
       # Secrets from Secret Manager
       env {
         name = "DATABASE_URL"

@@ -16,3 +16,19 @@ api_custom_domain  = "api.aurafractor.com"
 # Comma-separated allowed CORS origins. Must include all Firebase Hosting domains
 # that serve the frontend. Do not add a trailing slash.
 allowed_origins    = "https://aurafractor.web.app,https://aurafractor.firebaseapp.com"
+
+# Full HTTPS URL of the ML worker Cloud Run service that Cloud Tasks will POST
+# extraction jobs to. The path /worker/extract must match the route registered
+# in the worker container.
+#
+# TODO: A dedicated ML worker Cloud Run service does not yet exist in Terraform.
+# Before setting this value:
+#   1. Provision the worker Cloud Run service (add a worker.tf or equivalent).
+#   2. After first deploy, copy its generated Cloud Run URI from the GCP console
+#      or from `terraform output worker_url` (once that output is added).
+#   3. Set worker_url here to that URI + the /worker/extract path.
+#
+# Until this is set, the API falls back to http://localhost:5001/worker/extract
+# and ALL extraction jobs will silently fail after 3 Cloud Tasks retries.
+# Leave as empty string while the worker service is not yet provisioned.
+worker_url         = ""

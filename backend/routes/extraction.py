@@ -13,6 +13,11 @@ from utils.monitoring import increment, Timer
 bp = Blueprint('extraction', __name__, url_prefix='/extraction')
 MOCK_MODE = os.getenv('ENABLE_MOCK_RESPONSES', 'false').lower() == 'true'
 
+# In-memory poll counter for mock mode deterministic status progression.
+# Keyed by extraction_id (str). Survives for the lifetime of the dev server process.
+# First poll returns 'processing'; all subsequent polls return 'completed'.
+_mock_poll_counts: dict = {}
+
 
 @bp.route('/suggest-labels', methods=['POST'])
 @require_auth
@@ -143,21 +148,37 @@ def get_status(extraction_id):
     user_id = g.user['user_id']
 
     if MOCK_MODE:
-        import random
-        status = random.choice(['queued', 'processing', 'completed'])
+        # Deterministic status progression: first poll → 'processing', all
+        # subsequent polls → 'completed'. Uses a module-level counter dict keyed
+        # by extraction_id so the progression survives across request cycles
+        # within a single dev-server run.
+        poll_count = _mock_poll_counts.get(extraction_id, 0)
+        _mock_poll_counts[extraction_id] = poll_count + 1
+
+        now = datetime.utcnow().isoformat()
+        if poll_count == 0:
+            status = 'processing'
+        else:
+            status = 'completed'
+
         response = {
             'extraction_id': extraction_id,
             'status': status,
-            'created_at': datetime.utcnow().isoformat(),
-            'started_at': datetime.utcnow().isoformat() if status != 'queued' else None,
-            'completed_at': datetime.utcnow().isoformat() if status == 'completed' else None,
+            'created_at': now,
+            'started_at': now,
+            'completed_at': now if status == 'completed' else None,
             'cost_credits': 5,
         }
         if status == 'completed':
             response['results'] = {'sources': [
-                {'label': 'lead vocals', 'model_used': 'demucs', 'duration_seconds': 180,
-                 'audio_url': f'https://storage.googleapis.com/mock/{extraction_id}/vocals.wav',
-                 'waveform_url': f'https://storage.googleapis.com/mock/{extraction_id}/vocals_waveform.json'},
+                {
+                    'label': 'lead vocals',
+                    'model_used': 'demucs',
+                    'audio_url': f'https://storage.googleapis.com/mock/{extraction_id}/vocals.wav',
+                    'waveform_url': f'https://storage.googleapis.com/mock/{extraction_id}/vocals_waveform.json',
+                    'duration_seconds': 180,
+                    'sample_rate': 44100,
+                },
             ]}
         return jsonify(response)
 

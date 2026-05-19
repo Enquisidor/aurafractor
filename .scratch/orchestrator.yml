@@ -1,9 +1,9 @@
 agent: orchestrator
-session_id: cors-fix-001
-last_updated: "2026-05-06T14:00:00Z"
+session_id: upload-processing-stuck-001
+last_updated: "2026-05-19T00:00:00Z"
 status: active
 
-current_task: Firebase Hosting 404 fix complete — awaiting human confirmation to commit
+current_task: Investigating upload stuck in processing — root cause analysis complete, awaiting human decision on fixes
 
 tasks:
   cors-investigation:
@@ -84,5 +84,37 @@ tasks:
           github.event_name == 'workflow_dispatch' so manual deploys always
           have a built artifact. Automated workflow_run path unchanged.
       Decision log entries DEC-004 and DEC-005 written to .logs/decisions.md.
+
+  upload-stuck-investigation:
+    description: >
+      Investigate why new uploads get stuck in processing status and never complete.
+      Trace the upload → extraction → Cloud Tasks worker → webhook → status update pipeline.
+    status: complete
+    started_at: "2026-05-19T00:00:00Z"
+    completed_at: "2026-05-19T00:30:00Z"
+    output: .handoffs/orchestrator-upload-stuck-investigation.md
+    notes: >
+      Root cause confirmed: the Terraform cloud_run.tf sets ENABLE_MOCK_RESPONSES=false
+      for the deployed Cloud Run service, but it does NOT set WORKER_URL. The default
+      WORKER_URL in services/tasks.py is http://localhost:5001/worker/extract — which is
+      unreachable from Cloud Run. The Cloud Tasks queue creates tasks that target localhost,
+      those tasks are dispatched but fail (connection refused), the worker never runs, the
+      extraction status stays 'queued' forever (never transitions to 'processing'), and
+      the frontend polls indefinitely showing "processing".
+
+      Additionally: in mock mode (local dev), the webhook endpoint at
+      /webhooks/extraction-complete is a no-op — it acknowledges the call but does NOT
+      call handle_extraction_webhook. So even if somehow the worker called back in mock
+      mode, the DB status would never update.
+
+      Three fixes needed:
+      1. (Production/DevOps) Add WORKER_URL env var to cloud_run.tf pointing to the
+         actual Cloud Run worker service URL.
+      2. (Local dev) Either set ENABLE_MOCK_RESPONSES=false and use a real worker,
+         OR update the mock extraction /extract endpoint to auto-complete the extraction
+         in the DB after a short delay so the frontend can see a terminal status.
+      3. (Local dev) The mock get_status in extraction.py uses random.choice for status —
+         it never reliably reaches 'completed'. The frontend polls but has no way to
+         distinguish a real stuck extraction from a mock that hasn't rolled 'completed' yet.
 
 blockers: []
