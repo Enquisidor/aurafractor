@@ -126,13 +126,30 @@ class TestExtraction:
         }, headers=auth_headers)
         assert r.status_code == 400
 
-    def test_poll_status(self, client, auth_headers):
+    def test_poll_status_first_call_is_processing(self, client, auth_headers):
         extraction_id = str(uuid.uuid4())
         r = client.get(f'/extraction/{extraction_id}', headers=auth_headers)
         assert r.status_code == 200
         data = r.get_json()
         assert data['extraction_id'] == extraction_id
-        assert data['status'] in ('queued', 'processing', 'completed')
+        assert data['status'] == 'processing'
+        assert 'results' not in data
+
+    def test_poll_status_second_call_is_completed(self, client, auth_headers):
+        extraction_id = str(uuid.uuid4())
+        # First poll advances the counter
+        client.get(f'/extraction/{extraction_id}', headers=auth_headers)
+        # Second poll should return completed with a results payload
+        r = client.get(f'/extraction/{extraction_id}', headers=auth_headers)
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data['status'] == 'completed'
+        assert 'results' in data
+        sources = data['results']['sources']
+        assert len(sources) > 0
+        assert 'label' in sources[0]
+        assert 'audio_url' in sources[0]
+        assert sources[0]['sample_rate'] == 44100
 
     def test_poll_invalid_id(self, client, auth_headers):
         r = client.get('/extraction/not-a-uuid', headers=auth_headers)
