@@ -72,6 +72,9 @@ export const syncUploadQueue = createAsyncThunk(
   'uploadQueue/sync',
   async (_, { getState, dispatch }) => {
     const state = (getState() as { uploadQueue: UploadQueueState }).uploadQueue;
+    // Guard: don't process entries before storage hydration completes.
+    // syncUploadQueue fires on auth completion which can race hydrateUploadQueue.
+    if (!state.hydrated) return;
     const queued = state.entries.filter((e) => e.status === 'queued');
     for (const entry of queued) {
       dispatch(uploadQueueSlice.actions.setStatus({ localId: entry.localId, status: 'uploading' }));

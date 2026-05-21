@@ -1,9 +1,9 @@
 agent: orchestrator
 session_id: upload-processing-stuck-001
-last_updated: "2026-05-19T00:00:00Z"
+last_updated: "2026-05-19T10:00:00Z"
 status: active
 
-current_task: Investigating upload stuck in processing — root cause analysis complete, awaiting human decision on fixes
+current_task: Delegating history-tab re-invokes-extraction-on-reload bug to Frontend Engineer
 
 tasks:
   cors-investigation:
@@ -116,5 +116,20 @@ tasks:
       3. (Local dev) The mock get_status in extraction.py uses random.choice for status —
          it never reliably reaches 'completed'. The frontend polls but has no way to
          distinguish a real stuck extraction from a mock that hasn't rolled 'completed' yet.
+
+  history-rerun-bug-fix:
+    description: >
+      Investigate and fix: after app reload, clicking an extraction in History tab
+      re-invokes the extraction instead of navigating to status/results. Delegated to
+      Frontend Engineer.
+    status: in-progress
+    started_at: "2026-05-19T10:00:00Z"
+    completed_at: null
+    output: null
+    notes: >
+      Bug is reload-only. Likely caused by persisted Redux state (uploadQueueSlice) having
+      entries with status 'queued' that syncUploadQueue retries on auth load. Files in
+      scope: history.tsx, uploadQueueSlice.ts, _layout.tsx, extraction/[id].tsx,
+      useExtraction.ts.
 
 blockers: []

@@ -27,15 +27,19 @@ def user_history():
     user_id = g.user['user_id']
 
     if MOCK_MODE:
-        import uuid
+        # Use stable IDs so repeated History fetches navigate to the same
+        # extraction — fresh uuid.uuid4() per call caused the poll counter to
+        # reset on every click, making every tap appear to re-run the extraction.
+        _MOCK_TRACK_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+        _MOCK_EXTRACTION_ID = 'b2c3d4e5-f6a7-8901-bcde-f12345678901'
         return jsonify({
             'total_tracks': 1,
             'tracks': [{
-                'track_id': str(uuid.uuid4()),
+                'track_id': _MOCK_TRACK_ID,
                 'filename': 'song_1.mp3',
                 'uploaded_at': (datetime.utcnow() - timedelta(days=1)).isoformat(),
                 'extractions_count': 1,
-                'latest_extraction': {'extraction_id': str(uuid.uuid4()), 'status': 'completed'},
+                'latest_extraction': {'extraction_id': _MOCK_EXTRACTION_ID, 'status': 'completed'},
             }],
             'pagination': {'limit': limit, 'offset': offset, 'has_more': False},
         })

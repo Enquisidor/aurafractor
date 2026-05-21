@@ -5,7 +5,20 @@ library_path: /Users/alexweinstein/Documents/Code/skyfly/app-dev-agents
 
 output_dir: assembled
 
-orchestrator: true
+orchestrator:
+  modules:
+    route-from-orchestrator:
+      enabled: true
+    delegate-on-message-to-orch:
+      enabled: true
+    check-agent-invoke:
+      enabled: true
+    handoff-protocols:
+      enabled: true
+    scratchpad-conventions:
+      enabled: true
+    tdd-bdd-sequence:
+      enabled: true
 
 # ---------------------------------------------------------------------------
 # Feature pipeline agents
@@ -16,12 +29,20 @@ feature_agents:
   po:
     enabled: true
     modules:
+      handoff-protocols:
+        enabled: true
+      scratchpad-conventions:
+        enabled: true
       evaluation:
         enabled: true
 
   architect:
     enabled: true
     modules:
+      handoff-protocols:
+        enabled: true
+      scratchpad-conventions:
+        enabled: true
       design-accuracy:
         enabled: true
         dimensions: [architectural]
@@ -31,12 +52,20 @@ feature_agents:
   qa:
     enabled: true
     modules:
+      handoff-protocols:
+        enabled: true
+      scratchpad-conventions:
+        enabled: true
       evaluation:
         enabled: true
 
   test:
     enabled: true
     modules:
+      handoff-protocols:
+        enabled: true
+      scratchpad-conventions:
+        enabled: true
       evaluation:
         enabled: true
 
@@ -45,6 +74,10 @@ feature_agents:
     stacks:
       - sql-relational
     modules:
+      handoff-protocols:
+        enabled: true
+      scratchpad-conventions:
+        enabled: true
       security:
         enabled: true
       performance:
@@ -62,6 +95,10 @@ feature_agents:
     stacks:
       - react-native
     modules:
+      handoff-protocols:
+        enabled: true
+      scratchpad-conventions:
+        enabled: true
       security:
         enabled: true
       accessibility:
@@ -81,6 +118,10 @@ feature_agents:
     stacks:
       - terraform
     modules:
+      handoff-protocols:
+        enabled: true
+      scratchpad-conventions:
+        enabled: true
       security:
         enabled: true
       performance:
