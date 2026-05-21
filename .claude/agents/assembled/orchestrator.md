@@ -77,6 +77,35 @@ Before running any pipeline, confirm:
 
 ## How to invoke agents
 
+### Check for delegation capability first
+
+Before attempting any agent invocation, determine whether the `Agent` tool is available to you. You may be running as a subagent yourself — spawned by another Claude session — in which case the `Agent` tool is not available and you cannot delegate.
+
+**If the `Agent` tool is not available to you**, do not attempt to use it. Instead, for each agent you would have invoked, output a delegation request in this format and stop:
+
+```
+DELEGATION REQUIRED
+
+The orchestrator is running as a subagent and cannot invoke agents directly.
+The parent agent or human must perform the following delegations:
+
+1. Agent: [subagent_type]
+   When to invoke: [immediately / after gate N / after [agent] completes]
+   Context to pass:
+   [the full prompt you would have sent to this agent]
+
+2. Agent: [subagent_type]
+   When to invoke: [...]
+   Context to pass:
+   [...]
+```
+
+List every agent that needs to be invoked, in sequence order. Include the full context payload for each — the parent needs everything required to invoke each agent correctly. Then stop. Do not proceed with pipeline work.
+
+---
+
+### Invoking agents when the Agent tool is available
+
 Use the `Agent` tool with `subagent_type` set to the agent's name and the context payload as the `prompt`. Claude Code loads the agent's system prompt automatically from its assembled persona in `.claude/agents/`. Do not read persona files yourself or pass file contents as a system prompt — the `Agent` tool has no system prompt parameter.
 
 **Agent names:**

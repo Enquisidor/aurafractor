@@ -57,9 +57,14 @@ export const hydrateUploadQueue = createAsyncThunk(
     if (!raw) return [];
     try {
       const entries = JSON.parse(raw) as UploadEntry[];
-      // Drop stale 'queued' entries — file URIs (especially blob: URLs on web)
-      // don't survive page reloads, so retrying them would always 400.
-      return entries.filter((e) => e.status !== 'queued');
+      // Drop stale entries that can't be actioned after a restart:
+      // - 'queued': file URIs (especially blob: URLs on web) don't survive
+      //   page reloads, so retrying them would always 400.
+      // - 'uploaded': upload succeeded — the track is on the server and will
+      //   appear in history. Keeping these causes them to render as unclickable
+      //   LocalRows with a 'processing' badge if the track falls outside the
+      //   first history page, misleading the user indefinitely.
+      return entries.filter((e) => e.status !== 'queued' && e.status !== 'uploaded');
     } catch { return []; }
   },
 );
